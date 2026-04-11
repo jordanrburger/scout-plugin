@@ -1,0 +1,9 @@
+{
+  "name": "scout",
+  "version": "0.1.0",
+  "description": "Autonomous knowledge management and daily briefing system. Monitors your work tools (Slack, Calendar, Linear, GitHub, etc.), synthesizes findings into a persistent knowledge base, and delivers daily action items — all running unattended via scheduled Claude Code sessions.",
+  "commands": [
+    "commands/scout-setup.md",
+    "commands/scout-status.md"
+  ]
+}
