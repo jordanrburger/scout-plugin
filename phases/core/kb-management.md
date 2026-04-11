@@ -1,0 +1,159 @@
+---
+phase: core
+name: kb-management
+slot: kb-guidelines
+mode: [briefing, consolidation, dreaming]
+requires: null
+---
+
+## Knowledge Base Management Guidelines
+
+The KB is the **persistent memory** of this system. Action items are ephemeral (archived after 7 days); the KB is permanent. Every run should leave the KB more accurate, more complete, and more useful than it found it. The KB exists so that future runs — and {{USER_NAME}} — can quickly understand the current state of any project, person, decision, or issue without re-querying every connector from scratch.
+
+### KB File Types and What "Good" Looks Like
+
+**`knowledge-base.md` — Root index**
+- Master navigation table linking to every KB file
+- Key Decisions Log: major decisions with date, decision, and context. Add entries when decisions are made in meetings, messages, or issue trackers. Remove or update entries when decisions are reversed or superseded.
+- Recent session history: what each {{INSTANCE_NAME}} run accomplished
+- Quality bar: if someone reads only this file, they should know what exists in the KB and be able to navigate to any topic in one click.
+
+**`people.md` — People directory**
+- Every person {{USER_NAME}} works with, organized by team/org
+- Required fields: Name, Role/Context, Slack ID (if known), Email (if known)
+- Every role claim must be grounded in at least one live source (issue tracker assignee, message thread participant, code contributor, calendar invite). If unverifiable, append `[unverified]`.
+- Quality bar: if {{USER_NAME}} needs to find someone's contact info or role, this file should have it. If a new person appears in any connector (meeting attendee, PR reviewer, message thread participant), they should be added here.
+
+**`channels.md` — Channel directory**
+- Channel name, ID, and purpose/context
+- Quality bar: if {{INSTANCE_NAME}} needs to search a channel related to a project, this file tells it which channel to search.
+
+**Issue tracker file (e.g., `issues.md`) — Assigned issues**
+- {{USER_NAME}}'s assigned issues with current status, priority, project/parent, and notes
+- Monitored issues (not assigned to {{USER_NAME}} but relevant)
+- Issue hierarchy maps for complex projects
+- Quality bar: statuses must match the actual current state in the source system — stale statuses are the most common KB rot. Every run should spot-check at least 2-3 issue statuses.
+
+**`projects/<project-name>/<project-name>.md` — Project files**
+- This is where the KB's real value lives. A good project file contains:
+  - **One-liner**: What is this project in one sentence?
+  - **Status**: Current state with "Last verified" date and which sources were checked
+  - **Key People**: Everyone involved, with their role *in this project* (not just their org role)
+  - **Decisions Made**: Dated log of architectural and strategic decisions
+  - **Open Technical Questions**: What's unresolved, with status (resolved/open/deferred)
+  - **Current Action Items**: What {{USER_NAME}} specifically needs to do for this project
+  - **Upcoming Meetings**: Next relevant meetings
+  - **Issues**: Key issues with links, status, and who owns them
+- Quality bar: after reading a project file, {{USER_NAME}} should understand what's happening *right now*, who's doing what, what decisions were made and why, and what they need to do next. If the file doesn't answer those questions, it's too thin.
+
+### When to Create New KB Files
+
+**Create a new project file when:**
+- A new workstream appears that has its own meetings, issues, AND people (all three — not just one)
+- {{USER_NAME}} is actively making decisions about it (not just watching)
+- It would take more than 3 bullets to describe in `projects.md`
+
+**How to create:**
+1. Create `knowledge-base/projects/<project-name>/<project-name>.md` (folder + file named identically)
+2. Add a row to `projects/projects.md` with priority and status summary
+3. Add `[[project-name]]` link to `projects.md`
+4. Add any new people to `people.md`
+5. Add any new issues to the issue tracker file
+
+**Do NOT create a new file when:**
+- A topic is just a sub-item of an existing project (add it to that project's file instead)
+- It's a one-off task with no ongoing context (that's an action item, not a KB entry)
+- It duplicates information that already lives in another file
+
+### When to Archive Projects
+
+Move a project to `projects/archived/` when:
+- All issues under it are Done/Cancelled
+- No meetings about it in the last 30 days
+- {{USER_NAME}} confirms it's complete (or the system detects no activity for 30+ days)
+
+To archive: move the project's folder into `archived/`, update `projects.md` to move its row to the Archived table, and update `knowledge-base.md` if needed.
+
+### KB Freshness Standards
+
+Every KB file should have a "Last updated" or "Last verified" line. The standards:
+
+| File | Max staleness before it needs attention |
+|------|----------------------------------------|
+| Project files (active, high priority) | 3 days |
+| Project files (active, medium priority) | 7 days |
+| Project files (active, low priority) | 14 days |
+| `people.md` | 7 days (for role claims); add new people immediately |
+| Issue tracker file | Every run (spot-check statuses) |
+| `channels.md` | 14 days |
+| `knowledge-base.md` | Every run (it's the index) |
+
+During consolidation KB audits, **prioritize the stalest high-priority files** when choosing what to audit.
+
+### Review Queue — `knowledge-base/review-queue.md`
+
+**When you are uncertain about something, DO NOT write it to the KB. Put it in the review queue instead.** {{USER_NAME}} will verify it and either approve it into the KB or reject it.
+
+**Send to review queue when:**
+- A person appears to be two different people (or two people appear to be one) but you can't confirm from 2+ independent sources
+- A role or attribution has changed and you only have one source for the new claim
+- Two sources directly contradict each other and you can't determine which is correct
+- You're about to change who built/owns something and the only evidence is a name similarity or single message
+- Any claim that, if wrong, would cause {{USER_NAME}} to act on bad information
+
+**Write directly to KB when:**
+- The information is a mechanical fact confirmed from the source of truth (e.g., issue status from the issue tracker, PR state from the code host)
+- The claim is confirmed by 2+ independent sources (e.g., person is in both the calendar invite AND the issue tracker)
+- You are adding new information, not changing existing claims (adding a new person is lower risk than merging/splitting existing entries)
+- The change is additive and easily reversible
+
+**Review queue format:**
+```markdown
+### [Date] — [Short description]
+**Found in:** [which source]
+**Claim:** [what you found]
+**Why uncertain:** [why you're not writing it directly]
+**Affected KB files:** [which files would change]
+```
+
+**CRITICAL RULE: Never merge, split, or reassign people entries based on a single source.** People disambiguation is the highest-risk KB operation. If you think person A and person B might be the same person (or different people), ALWAYS put it in the review queue. A single source — even a seemingly authoritative one — is not enough to change people entries.
+
+### Verification Levels
+
+When writing KB content, use these markers:
+- **No marker** = verified from 2+ independent live sources during this run
+- **[single-source]** = found in exactly one source; higher risk of error — prefer sending to review queue if the claim is consequential
+- **[unverified]** = carried forward from a previous run, not yet confirmed against any live source
+- **[stale]** = known to be outdated but kept as historical context until replacement info is found
+- **[contradicted]** = two sources disagree; both claims noted with sources cited — always add to review queue
+
+### Cross-Reference Integrity
+
+The KB's value depends on its graph being connected. Rules:
+- Every project file links to: `[[projects]]`, `[[people]]`, the issue tracker file, and any related project files
+- Every person mentioned in a project file should exist in `[[people]]`
+- Every issue mentioned in a project file should exist in the issue tracker file
+- `knowledge-base.md` links to everything at the top level
+- Action items link to any KB files they reference
+- If you update a file and mention something that should be linked but isn't, add the link
+- All internal references use Obsidian `[[wikilink]]` syntax
+
+### What the KB is NOT
+
+- **Not a log.** Don't append timestamped entries forever. Update the current state in-place. Git history preserves the timeline.
+- **Not a copy of your sources.** The KB synthesizes information from multiple sources into a coherent picture. Don't dump raw data — interpret it.
+- **Not a task list.** Action items live in `action-items/`. The KB tracks the *context* that makes action items meaningful (project state, people, decisions), not the items themselves. (Exception: project files may have a short "Current Action Items" section for project-specific tasks.)
+
+### Naming Convention
+
+**Never use `index.md`.** The main file in any folder is named after the folder itself (e.g., `projects/projects.md`, `my-project/my-project.md`). If you need to create a new project or subfolder, follow this pattern. Always use `[[wikilinks]]` when referencing other files in the KB.
+
+---
+
+## Source Equality Principle
+
+**No single source is authoritative.** Every connected service — meeting transcripts, messaging, calendar, issue tracker, email, code host, session history — is an equal signal. Every claim, whether it comes from a meeting transcript, a message thread, or the existing KB itself, must be corroborated or questioned.
+
+**The existing KB is NOT trusted as fact.** It contains information written by previous runs that may be incorrect, incomplete, or outdated. Every run should treat KB content as "claims to verify" rather than "facts to preserve." When you encounter a claim (e.g., "Person X built the Y feature"), ask: can I confirm this from at least one live source? If not, flag it as unverified or correct it if you find contradicting evidence.
+
+**{{USER_NAME}}'s own actions are the most important signal.** What {{USER_NAME}} has actually DONE (messages sent, meetings cancelled, DMs written, PRs submitted, code committed) always takes priority over what meeting notes SAY they should do.
