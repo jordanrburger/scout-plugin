@@ -1,0 +1,51 @@
+#!/bin/bash
+# {{INSTANCE_NAME}} Dreaming runner — invoked by scheduler in the evening
+
+set -euo pipefail
+
+SCOUT_DIR="{{SCOUT_DIR}}"
+LOG_DIR="$SCOUT_DIR/.scout-logs"
+CLAUDE_BIN="{{CLAUDE_BIN}}"
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
+LOG_FILE="$LOG_DIR/dreaming-$TIMESTAMP.log"
+
+mkdir -p "$LOG_DIR"
+
+PROMPT="You are {{INSTANCE_NAME}} running in DREAMING mode — the evening self-improvement and KB deep work session. Your working directory is {{SCOUT_DIR}}.
+
+Step 1: Read {{SCOUT_DIR}}/DREAMING.md in full.
+Step 2: Execute Phase 1 (Feedback Processing) completely.
+Step 3: Execute Phase 2 (KB Deep Work) completely.
+Step 4: Execute Phase 3 (Wishlist) completely.
+Step 5: Commit results to git.
+Step 6: Send a notification summarizing feedback processed and KB work done.
+
+Important:
+- Use 'gh' CLI for all GitHub operations (not GitHub MCP).
+- The knowledge base is in {{SCOUT_DIR}}/knowledge-base/.
+- Always use [[wikilinks]] when referencing KB files.
+- Commit with message format: dreaming [HH:MM]: <summary>
+- Your output should focus on what you found and changed, not infrastructure steps."
+
+echo "=== {{INSTANCE_NAME}} Dreaming run starting at $(date) ===" >> "$LOG_FILE"
+
+HOUR=$(date +%H)
+case $HOUR in
+    {{DREAMING_HOURS_CASE}})
+    *)  MODE="dreaming-manual" ;;
+esac
+
+cd "$SCOUT_DIR" && "$CLAUDE_BIN" \
+    --permission-mode auto \
+    --model opus \
+    --max-budget-usd {{MAX_BUDGET}} \
+    --name "{{INSTANCE_NAME_LOWER}}-${MODE}-$(date +%Y%m%d)" \
+    -p "$PROMPT" \
+    >> "$LOG_FILE" 2>&1
+
+EXIT_CODE=$?
+echo "=== {{INSTANCE_NAME}} Dreaming run finished at $(date) (exit code: $EXIT_CODE) ===" >> "$LOG_FILE"
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "{{INSTANCE_NAME}} Dreaming run FAILED with exit code $EXIT_CODE at $(date)" >> "$LOG_DIR/failures.log"
+fi

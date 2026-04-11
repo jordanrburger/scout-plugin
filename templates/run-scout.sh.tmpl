@@ -1,0 +1,52 @@
+#!/bin/bash
+# {{INSTANCE_NAME}} runner — invoked by scheduler at configured times
+# Each invocation starts a fresh Claude Code session with full local access
+
+set -euo pipefail
+
+SCOUT_DIR="{{SCOUT_DIR}}"
+LOG_DIR="$SCOUT_DIR/.scout-logs"
+CLAUDE_BIN="{{CLAUDE_BIN}}"
+TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
+LOG_FILE="$LOG_DIR/scout-$TIMESTAMP.log"
+
+mkdir -p "$LOG_DIR"
+
+PROMPT="You are {{INSTANCE_NAME}}, an autonomous knowledge management system. Your working directory is {{SCOUT_DIR}}.
+
+Step 1: Read {{SCOUT_DIR}}/SKILL.md in full.
+Step 2: Determine your mode based on the current hour.
+Step 3: Execute the SKILL.md instructions completely — all steps/phases in order.
+Step 4: Commit results to git.
+Step 5: If anything material changed, send a notification summarizing what was found and changed.
+
+Important:
+- Use 'gh' CLI for all GitHub operations (not GitHub MCP).
+- The knowledge base and action items are in {{SCOUT_DIR}}/knowledge-base/ and {{SCOUT_DIR}}/action-items/.
+- Always use [[wikilinks]] when referencing KB files.
+- Commit frequently — every meaningful change gets its own commit.
+- Your output should focus on what you found and changed, not infrastructure steps."
+
+echo "=== {{INSTANCE_NAME}} run starting at $(date) ===" >> "$LOG_FILE"
+
+HOUR=$(date +%H)
+case $HOUR in
+    {{BRIEFING_HOUR}}) MODE="morning-briefing" ;;
+    {{CONSOLIDATION_HOURS_CASE}})
+    *)  MODE="manual" ;;
+esac
+
+cd "$SCOUT_DIR" && "$CLAUDE_BIN" \
+    --permission-mode auto \
+    --model opus \
+    --max-budget-usd {{MAX_BUDGET}} \
+    --name "{{INSTANCE_NAME_LOWER}}-${MODE}-$(date +%Y%m%d)" \
+    -p "$PROMPT" \
+    >> "$LOG_FILE" 2>&1
+
+EXIT_CODE=$?
+echo "=== {{INSTANCE_NAME}} run finished at $(date) (exit code: $EXIT_CODE) ===" >> "$LOG_FILE"
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo "{{INSTANCE_NAME}} run FAILED with exit code $EXIT_CODE at $(date)" >> "$LOG_DIR/failures.log"
+fi
