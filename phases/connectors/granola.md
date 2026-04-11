@@ -1,0 +1,70 @@
+---
+phase: connector
+name: granola
+slot: inbound-scan
+mode: [consolidation, briefing]
+requires: granola
+---
+
+## Granola Inbound Scan — Meeting Transcripts
+
+Pull meeting transcripts for meetings since the last run and extract actionable information.
+
+### Retrieve Recent Transcripts
+
+Use `list_meetings` to find meetings since the last run, then use `get_meeting_transcript` for each meeting to pull the full transcript.
+
+For each transcript, extract:
+
+1. **Action items mentioned** — any commitment like "I'll do X," "{{USER_NAME}} will handle Y," or "we need to Z." Record exactly what was said, by whom, and in what context.
+2. **Decisions made** — any agreement or conclusion reached during the meeting. Record the decision, who was involved, and what it supersedes (if anything).
+3. **Commitments by others** — things other people said they'd do that {{USER_NAME}} should track. These become Watching items.
+4. **Deadlines or timelines mentioned** — any dates or timeframes referenced ("by Friday," "next sprint," "end of quarter").
+5. **Open questions** — things that were raised but not resolved in the meeting.
+
+### Critical Warning: Transcripts Are Signals, Not Facts
+
+**Meeting transcripts are SIGNALS, not FACTS.** A transcript is a noisy recording of a conversation — people misspeak, context is lost, and not every statement represents a real commitment.
+
+Every action item extracted from a transcript is a **candidate** that must be verified:
+- Did {{USER_NAME}} already complete this? (Check outbound messages, code activity, email)
+- Was this superseded by a later discussion? (Check more recent transcripts, Slack messages)
+- Is this actually assigned to {{USER_NAME}}? (Transcripts often attribute items vaguely — verify against the issue tracker)
+- Is this the same item already tracked elsewhere? (Deduplicate against existing action items)
+
+**Never write a transcript-sourced action item directly to the action items file without cross-checking it first.**
+
+### Attendee Extraction
+
+Note all meeting attendees. Cross-reference with `people.md` and add any new people with context: "Attendee in [meeting title] on [date]."
+
+---
+phase: connector
+name: granola
+slot: query
+mode: [briefing]
+requires: granola
+---
+
+## Granola Query — Briefing Data Gathering
+
+### Recent Meeting Notes
+
+Use `list_meetings` to check for recent meetings (past 24 hours) with available transcripts. For each meeting:
+
+1. Pull the transcript using `get_meeting_transcript`
+2. Extract action items and commitments (apply the same "signals, not facts" principle)
+3. Note decisions that affect current projects
+4. Identify any follow-up meetings that were discussed
+
+### Cross-Reference with Calendar
+
+Compare the list of meetings with transcripts against the calendar. Look for gaps:
+- Meetings on the calendar that have no transcript (may need manual notes, or the meeting was cancelled)
+- Transcripts for meetings not on the calendar (ad-hoc calls, informal meetings)
+
+When both a transcript and calendar entry exist for the same meeting, use both for richer context: the calendar provides attendees and timing, the transcript provides content.
+
+### Context for Today's Meetings
+
+If today's calendar has meetings with attendees or topics that appeared in recent transcripts, note the connection. This helps {{USER_NAME}} prepare: "You're meeting with X again today — in yesterday's call, you committed to Y."
