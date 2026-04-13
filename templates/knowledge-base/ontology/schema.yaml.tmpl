@@ -1,0 +1,127 @@
+# {{INSTANCE_NAME}} Knowledge Graph — Ontology Schema
+# Defines valid entity types, properties, and relationship types.
+# The parser validates all entity files against this schema.
+
+entity_types:
+  person:
+    properties:
+      required: [name, type]
+      optional: [email, slack_id, github, birthday, role, team, employer, phone]
+    relationships:
+      - works_with
+      - manages
+      - managed_by
+      - reports_to
+      - partner_of
+      - family_of
+      - owner_of
+      - works_on
+      - employed_by
+  pet:
+    properties:
+      required: [name, type, species]
+      optional: [breed, birthday]
+    relationships:
+      - owned_by
+      - has_vet
+  project:
+    properties:
+      required: [name, type, status, priority]
+      optional: [linear_id, repo, team]
+    relationships:
+      - worked_on_by
+      - depends_on
+      - dependency_of
+      - blocks
+      - blocked_by
+  task:
+    properties:
+      required: [name, type, status]
+      optional: [deadline, priority, domain, completion_signal, created_date, completed_date]
+    relationships:
+      - assigned_to
+      - about
+      - blocked_by
+  organization:
+    properties:
+      required: [name, type]
+      optional: [domain, industry, address, phone, website, hours, category]
+    relationships:
+      - employs
+      - employed_by
+      - owns
+      - serves
+      - served_by
+      - uses_technology
+  technology:
+    properties:
+      required: [name, type]
+      optional: [domain, category, license, language, latest_version]
+    relationships:
+      - used_by
+      - forked_from
+      - depends_on
+      - dependency_of
+
+relationship_types:
+  works_with:
+    inverse: works_with
+    symmetric: true
+  manages:
+    inverse: managed_by
+  managed_by:
+    inverse: manages
+  reports_to:
+    inverse: manages
+  partner_of:
+    inverse: partner_of
+    symmetric: true
+  family_of:
+    inverse: family_of
+    symmetric: true
+  owner_of:
+    inverse: owned_by
+  owned_by:
+    inverse: owner_of
+  works_on:
+    inverse: worked_on_by
+  worked_on_by:
+    inverse: works_on
+  depends_on:
+    inverse: dependency_of
+  dependency_of:
+    inverse: depends_on
+  blocks:
+    inverse: blocked_by
+  blocked_by:
+    inverse: blocks
+  assigned_to:
+    inverse: assignee_of
+  assignee_of:
+    inverse: assigned_to
+  about:
+    inverse: referenced_by
+  referenced_by:
+    inverse: about
+  employs:
+    inverse: employed_by
+  employed_by:
+    inverse: employs
+  owns:
+    inverse: owned_by
+  serves:
+    inverse: served_by
+  served_by:
+    inverse: serves
+  has_vet:
+    inverse: vet_of
+  vet_of:
+    inverse: has_vet
+  uses_technology:
+    inverse: used_by
+  used_by:
+    inverse: uses_technology
+  forked_from:
+    inverse: forked_to
+  forked_to:
+    inverse: forked_from

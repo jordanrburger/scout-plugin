@@ -12,6 +12,53 @@ This is the substantive knowledge-base improvement phase. Score every KB file, p
 
 ---
 
+### Step 2-pre: Scan for Inline Comments
+
+Before scoring files, search all `.md` files under `{{SCOUT_DIR}}` for {{USER_NAME}}'s inline comment markers:
+
+```bash
+grep -rn '//==<<' {{SCOUT_DIR}} --include='*.md'
+```
+
+**Comment format:** `//==<< comment >>==//`
+
+{{USER_NAME}} leaves these as embedded feedback, questions, or requests directly in KB files and docs. For each comment found:
+
+1. **Read the comment** — understand what {{USER_NAME}} is asking for or flagging
+2. **Act on it if possible** — fix content, reorganize, archive, or update as requested
+3. **Remove the marker** once the comment is addressed (the action itself replaces the comment)
+4. **If the comment requires research or can't be resolved this run**, leave it in place and note it in the session summary
+
+These inline comments are high-priority — they represent explicit {{USER_NAME}} feedback embedded in the source files. Treat them with the same urgency as messaging reactions/replies.
+
+### Step 2-ontology: Knowledge Graph Integrity Check
+
+Before scoring individual files, run the knowledge graph parser for structural checks:
+
+```bash
+cd {{SCOUT_DIR}} && python knowledge-base/ontology/parser.py validate
+cd {{SCOUT_DIR}} && python knowledge-base/ontology/parser.py stats
+```
+
+**Schema validation errors to act on:**
+- **Missing required properties** — fix the entity file (add the missing field)
+- **Invalid relationship types** — correct the relationship type to match `schema.yaml`
+- **Orphaned entities** — entities with no relationships at all. If they should have relationships, add them. If they're stubs, either enrich or note for future work.
+- **Broken wikilink targets** — relationship targets that don't resolve to an entity file. Either create the missing entity file or fix the target name.
+
+**Personal task staleness detection:**
+
+```bash
+cd {{SCOUT_DIR}} && python knowledge-base/ontology/parser.py query --type task
+```
+
+For each personal task entity (`domain: personal`, `status: open`):
+- **Stale task** = open personal task with `created_date` older than 7 days and no activity. Flag in the notification: "Still open: [task name] — done?"
+- **Deadline approaching** = task with `deadline` within 3 days. Escalate priority to 🔴 in the entity file if not already.
+- **Completion signal check** = if `completion_signal: gmail_confirmation`, check Gmail for matching confirmation. Auto-resolve if found (set `status: completed`, add `completed_date`).
+
+Commit any entity file changes from this step before proceeding to file scoring.
+
 ### Step 2a: Score All KB Files
 
 Read every file in `knowledge-base/`. Score each file on four dimensions (0-3 each). Total possible score: 12. Higher scores = higher priority for work.
@@ -49,10 +96,10 @@ Assess navigation, cross-references, and formatting.
 
 | Score | Meaning |
 |---|---|
-| 3 | Multiple broken or missing `[[wikilinks]]`, not linked from parent file, orphaned from the KB graph |
-| 2 | Missing 2+ expected `[[wikilinks]]`, verification levels not applied to claims |
-| 1 | One missing wikilink or minor formatting inconsistency |
-| 0 | Well-linked, properly formatted, all cross-references intact |
+| 3 | Multiple broken or missing `[[wikilinks]]`, not linked from parent file, orphaned from the KB graph. For entity files: missing YAML frontmatter, or the parser reports validation errors for this entity. |
+| 2 | Missing 2+ expected `[[wikilinks]]`, verification levels not applied to claims. For entity files: entity has no relationships (orphaned in the graph) or has stale relationship targets. |
+| 1 | One missing wikilink or minor formatting inconsistency. For entity files: minor frontmatter issues (optional fields that could be populated). |
+| 0 | Well-linked, properly formatted, all cross-references intact. Entity files pass parser validation. |
 
 #### Dimension 4: Feedback Signal (0-3)
 
@@ -94,6 +141,7 @@ Based on the scoring distribution, select a work mode:
 - Fix broken and missing `[[wikilinks]]` across the KB.
 - Verify the KB graph: every file reachable from `knowledge-base.md`, no orphans.
 - Apply verification levels (`[single-source]`, `[unverified]`, etc.) to claims that lack them.
+- **Knowledge graph integrity:** Run `python knowledge-base/ontology/parser.py validate` and fix any errors. Create missing entity files for people/projects that have relationships but no entity file. Add missing relationships to existing entity files.
 - Goal: make the KB navigable and trustworthy.
 
 **Blended**: You can combine modes within a single run. For example, deep-dive one file and then do a quick structural pass on related files. Use judgment based on the scoring distribution.
@@ -157,7 +205,38 @@ Include:
 
 ---
 
-### Step 2g: Complement Daytime Runs
+### Step 2g: Scout Digest
+
+If today's action items file exists (`action-items/action-items-YYYY-MM-DD.md`), append or update a **Scout Digest** section at the bottom (before the Sources line). This helps {{USER_NAME}} quickly catch up on what {{INSTANCE_NAME}} has been doing across all sessions.
+
+**Format:**
+
+```markdown
+## Scout Digest — [Date] ([Time])
+
+**{{INSTANCE_NAME}} ran N sessions today** (breakdown by type). Here's what needs your attention:
+
+### Files to Review
+- **[[file]]** — what changed and why {{USER_NAME}} should look at it
+
+### Your Input Needed
+| Item | What {{INSTANCE_NAME}} needs | Priority |
+|------|-----------------|----------|
+| ... | ... | 🔴/🟡/🟢 |
+
+### KB Growth Today
+- Ontology stats, new entities, patterns added
+```
+
+**Rules:**
+- Only include files that changed **substantively** (not just timestamp updates)
+- "Your Input Needed" should list ONLY items where {{USER_NAME}}'s action unblocks {{INSTANCE_NAME}} or a project
+- Keep it scannable — no walls of text. Link to KB files for details.
+- If a digest already exists from an earlier session today, **update it** (don't duplicate)
+
+---
+
+### Step 2h: Complement Daytime Runs
 
 Dreaming runs should complement, not duplicate, daytime consolidation and briefing runs. Strategies:
 

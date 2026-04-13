@@ -68,6 +68,30 @@ Items carried forward from previous days that are still open.
 
 All action items files must include `[[wikilinks]]` to any KB files referenced by action items.
 
+## Knowledge Graph Personal Tasks
+
+If the ontology parser is set up, query it for personal tasks and deadlines:
+
+```bash
+cd {{SCOUT_DIR}} && python knowledge-base/ontology/parser.py query --type task
+```
+
+For the morning briefing, focus on:
+
+1. **Open personal tasks** — tasks with `domain: personal` and `status: open`. These carry forward into daily action items alongside work tasks.
+2. **Deadline escalation** — any task with a `deadline` field. Apply escalating priority:
+   - 7+ days out: keep existing priority
+   - 3-7 days out: escalate to 🟡 if not already higher
+   - <3 days out: escalate to 🔴
+3. **Birthday alerts** — check if any person entity has a `birthday` field matching today's month/day. If so, add a reminder to the action items.
+
+Personal tasks appear in the action items file in a **Personal** section after work items.
+
+During consolidation, also check for completion signals:
+- If any personal task has a `completion_signal: gmail_confirmation`, check Gmail for matching confirmations. If found, update the entity file's `status` to `completed` and add `completed_date`.
+- If {{USER_NAME}} reported completion via Slack DM, update the entity file.
+- Carry open personal tasks forward in the action items file's Personal section.
+
 ## Mandatory Cross-Check
 
 **Before ANY item becomes a To Do, it must pass ALL available cross-checks.** The cross-check adapts to your connected services:
