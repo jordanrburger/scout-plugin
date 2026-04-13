@@ -9,16 +9,38 @@ LOG_DIR="$SCOUT_DIR/.scout-logs"
 CLAUDE_BIN="{{CLAUDE_BIN}}"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M)
 LOG_FILE="$LOG_DIR/scout-$TIMESTAMP.log"
+LOCK_FILE="$LOG_DIR/.scout-session.lock"
 
+# Ensure log directory exists
 mkdir -p "$LOG_DIR"
 
+# Ensure .scout-logs is gitignored
+if ! grep -q '.scout-logs' "$SCOUT_DIR/.gitignore" 2>/dev/null; then
+    echo '.scout-logs/' >> "$SCOUT_DIR/.gitignore"
+fi
+
+# Concurrency guard — only one {{INSTANCE_NAME}} session at a time
+if [ -f "$LOCK_FILE" ]; then
+    LOCK_PID=$(cat "$LOCK_FILE" 2>/dev/null)
+    if kill -0 "$LOCK_PID" 2>/dev/null; then
+        echo "=== Another {{INSTANCE_NAME}} session running (PID $LOCK_PID) — skipping ===" >> "$LOG_FILE"
+        exit 0
+    else
+        # Stale lock file — previous session crashed
+        rm -f "$LOCK_FILE"
+    fi
+fi
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT
+
+# The prompt instructs Claude to read SKILL.md and execute it
 PROMPT="You are {{INSTANCE_NAME}}, an autonomous knowledge management system. Your working directory is {{SCOUT_DIR}}.
 
 Step 1: Read {{SCOUT_DIR}}/SKILL.md in full.
-Step 2: Determine your mode based on the current hour.
+Step 2: Determine your mode based on the current hour (run 'date +%H').
 Step 3: Execute the SKILL.md instructions completely — all steps/phases in order.
 Step 4: Commit results to git.
-Step 5: If anything material changed, send a notification summarizing what was found and changed.
+Step 5: If anything material changed, send a brief Slack DM to {{USER_NAME}} (Slack ID: {{USER_SLACK_ID}}) summarizing what was found and changed.
 
 Important:
 - Use 'gh' CLI for all GitHub operations (not GitHub MCP).
@@ -29,24 +51,63 @@ Important:
 
 echo "=== {{INSTANCE_NAME}} run starting at $(date) ===" >> "$LOG_FILE"
 
-HOUR=$(date +%H)
-case $HOUR in
-    {{BRIEFING_HOUR}}) MODE="morning-briefing" ;;
-    {{CONSOLIDATION_HOURS_CASE}})
-    *)  MODE="manual" ;;
-esac
+# Budget check — skip if we're over the spending threshold
+BUDGET_CHECK="$SCOUT_DIR/scripts/budget-check.sh"
+if [ -x "$BUDGET_CHECK" ]; then
+    if ! "$BUDGET_CHECK" --verbose >> "$LOG_FILE" 2>&1; then
+        echo "=== Budget check: skipping this run ===" >> "$LOG_FILE"
+        exit 0
+    fi
+fi
 
+# Determine mode label for session name
+HOUR=$(date +%H)
+DAY_OF_WEEK=$(date +%u)  # 1=Mon ... 6=Sat, 7=Sun
+
+if [ "$DAY_OF_WEEK" -ge 6 ]; then
+    # Weekend
+    case $HOUR in
+        {{BRIEFING_HOUR}}) MODE="weekend-briefing" ;;
+        *)  MODE="weekend-manual" ;;
+    esac
+else
+    # Weekday
+    case $HOUR in
+        {{BRIEFING_HOUR}}) MODE="morning-briefing" ;;
+        {{CONSOLIDATION_HOURS_CASE}}
+        *)  MODE="manual" ;;
+    esac
+fi
+
+START_TIME=$(date +%s)
+
+# Run Claude in print mode — capture exit code without triggering set -e
+EXIT_CODE=0
 cd "$SCOUT_DIR" && "$CLAUDE_BIN" \
     --permission-mode auto \
     --model opus \
     --max-budget-usd {{MAX_BUDGET}} \
-    --name "{{INSTANCE_NAME_LOWER}}-${MODE}-$(date +%Y%m%d)" \
+    --name "{{INSTANCE_NAME_LOWER}}-${MODE}-$(date +%Y%m%d-%H%M)" \
     -p "$PROMPT" \
-    >> "$LOG_FILE" 2>&1
+    >> "$LOG_FILE" 2>&1 || EXIT_CODE=$?
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
 
-EXIT_CODE=$?
-echo "=== {{INSTANCE_NAME}} run finished at $(date) (exit code: $EXIT_CODE) ===" >> "$LOG_FILE"
+echo "=== {{INSTANCE_NAME}} run finished at $(date) (exit code: $EXIT_CODE, duration: ${DURATION}s) ===" >> "$LOG_FILE"
 
+# If the run failed, log it and check for rate limiting
 if [ $EXIT_CODE -ne 0 ]; then
     echo "{{INSTANCE_NAME}} run FAILED with exit code $EXIT_CODE at $(date)" >> "$LOG_DIR/failures.log"
+    RATE_DETECT="$SCOUT_DIR/scripts/rate-limit-detect.sh"
+    if [ -x "$RATE_DETECT" ]; then
+        if "$RATE_DETECT" "$LOG_FILE" --write-tracker 2>/dev/null; then
+            echo "Rate limit detected — logged to usage tracker" >> "$LOG_FILE"
+        fi
+    fi
+fi
+
+# Track session cost
+COST_TRACKER="$SCOUT_DIR/scripts/write-session-cost.sh"
+if [ -x "$COST_TRACKER" ]; then
+    "$COST_TRACKER" "$MODE" {{MAX_BUDGET}} 0 "$EXIT_CODE" 2>/dev/null || true
 fi

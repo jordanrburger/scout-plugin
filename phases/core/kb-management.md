@@ -34,6 +34,14 @@ The KB is the **persistent memory** of this system. Action items are ephemeral (
 - Issue hierarchy maps for complex projects
 - Quality bar: statuses must match the actual current state in the source system — stale statuses are the most common KB rot. Every run should spot-check at least 2-3 issue statuses.
 
+**Entity files (`people/`, `personal/`, `ontology/entities/`) — Knowledge graph entities**
+- Individual entity files with YAML frontmatter defining typed properties and relationships
+- The frontmatter is machine-readable by the parser at `knowledge-base/ontology/parser.py`
+- Relationships use `[[wikilinks]]` in targets: `target: "[[Entity Name]]"`
+- Entity files complement (not replace) `people.md` — the flat table remains the authoritative directory
+- When adding a new person to `people.md`, also create an entity file in `knowledge-base/people/` if they have relationships worth tracking
+- Personal task entities (`personal/task-*.md`) have `domain: personal`, `status`, `priority`, `deadline`, and `completion_signal` fields
+
 **`projects/<project-name>/<project-name>.md` — Project files**
 - This is where the KB's real value lives. A good project file contains:
   - **One-liner**: What is this project in one sentence?

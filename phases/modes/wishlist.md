@@ -38,16 +38,22 @@ Scan for items that are neither `[done]` nor `[in progress]`. For each not-start
 
 ---
 
-### Step 3c: Pick One Item Per Run
+### Step 3c: Maximize Wishlist Progress
 
-Select the **first actionable item** from the top of the wishlist (items higher in the list are higher priority). One item per dreaming run keeps changes focused and reviewable.
+Select actionable items and push as far as possible. Don't artificially limit yourself to one sub-task — complete multiple sub-tasks or even multiple items if time allows. The constraint is quality, not count.
+
+**Priority order:**
+1. Items {{USER_NAME}} has explicitly flagged as important (check recent feedback)
+2. First actionable item on the list (not done, not blocked)
+3. In-progress items with remaining sub-tasks
 
 **Execution rules by item type:**
 
-- **Skill or documentation changes**: Edit the target file directly. Follow existing conventions and formatting in the file.
+- **Skill or documentation changes**: Edit the target file directly. Follow existing conventions and formatting in the file. (SKILL.md changes must go through the proposal gate — write proposals to `dreaming-proposals.md`.)
 - **New files**: Create following the naming conventions and structure patterns established in the codebase. Link new files from their parent/index files.
 - **Configuration changes**: Edit the relevant config file. Test that the change is syntactically valid.
-- **Multi-run efforts**: Complete exactly one sub-task. Do not attempt to rush through multiple sub-tasks in a single run.
+- **Research items**: Do real research (check docs, test locally, query sources) — don't give superficial answers.
+- **Multi-run efforts**: Complete as many sub-tasks as you can per run, not just one.
 
 **Scope guard**: If an item turns out to be larger than expected mid-implementation, stop at a clean checkpoint. Mark it `[in progress]` with a note about what was completed and what remains. Do not leave half-finished work in an inconsistent state.
 
@@ -73,6 +79,8 @@ After executing (or deciding to skip), update `docs/Wishlist.md`:
 
 **For items skipped as ambiguous:**
 Do not modify the item. Leave it as-is for {{USER_NAME}} to clarify. Optionally add a comment in the session log noting which item was skipped and why.
+
+**Archive done items:** Move any `[done]` items (including their description and implementation notes) from `docs/Wishlist.md` to `docs/Wishlist-done.md` and delete them from the active file. This keeps the active wishlist small and token-efficient.
 
 ---
 

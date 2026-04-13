@@ -1,0 +1,21 @@
+#!/bin/bash
+# Write session cost entry to the usage tracker
+# Called by sessions as their final action before exit
+#
+# Usage: write-session-cost.sh <type> <budget_cap> <budget_spent> [exit_code]
+# Example: write-session-cost.sh dreaming 10 7.42 0
+
+set -euo pipefail
+
+TRACKER_FILE="{{SCOUT_DIR}}/.scout-logs/usage-tracker.jsonl"
+mkdir -p "$(dirname "$TRACKER_FILE")"
+
+TYPE="${1:-unknown}"
+BUDGET_CAP="${2:-0}"
+BUDGET_SPENT="${3:-0}"
+EXIT_CODE="${4:-0}"
+TIMESTAMP=$(TZ=UTC date '+%Y-%m-%dT%H:%M:%SZ')
+TIMESTAMP_ET=$(TZ={{TIMEZONE}} date '+%Y-%m-%d %H:%M %Z')
+
+# Write JSON line
+echo "{\"ts\":\"$TIMESTAMP\",\"ts_et\":\"$TIMESTAMP_ET\",\"type\":\"$TYPE\",\"budget_cap\":$BUDGET_CAP,\"budget_spent\":$BUDGET_SPENT,\"exit_code\":$EXIT_CODE}" >> "$TRACKER_FILE"

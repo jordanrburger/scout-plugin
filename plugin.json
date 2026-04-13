@@ -1,9 +1,15 @@
 {
   "name": "scout",
-  "version": "0.1.0",
-  "description": "Autonomous knowledge management and daily briefing system. Monitors your work tools (Slack, Calendar, Linear, GitHub, etc.), synthesizes findings into a persistent knowledge base, and delivers daily action items — all running unattended via scheduled Claude Code sessions.",
+  "version": "0.2.0",
+  "description": "Autonomous knowledge management and daily briefing system. Monitors your work tools (Slack, Calendar, Linear, GitHub, etc.), synthesizes findings into a persistent knowledge base with a formal ontology, and delivers daily action items — all running unattended via scheduled Claude Code sessions. Four session types: Morning Briefing, Consolidation, Dreaming, and Research.",
   "commands": [
     "commands/scout-setup.md",
     "commands/scout-status.md"
+  ],
+  "skills": [
+    "skills/scout-briefing.md",
+    "skills/scout-consolidation.md",
+    "skills/scout-dream.md",
+    "skills/scout-research.md"
   ]
 }

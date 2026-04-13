@@ -65,7 +65,12 @@ Ask the user these questions one at a time. Wait for each answer before proceedi
 
 - Store as `USER_EMAIL`
 
-Confirm: "Got it. Instance: **{{INSTANCE_NAME}}**, User: **{{USER_NAME}}**, Email: **{{USER_EMAIL}}**."
+**1d.** "What's your timezone? (Used for scheduling and timestamps. Default: America/New_York)"
+
+- If the user presses enter or says "default", use "America/New_York"
+- Store as `TIMEZONE`
+
+Confirm: "Got it. Instance: **{{INSTANCE_NAME}}**, User: **{{USER_NAME}}**, Email: **{{USER_EMAIL}}**, Timezone: **{{TIMEZONE}}**."
 
 ---
 
@@ -176,7 +181,7 @@ Tell the user: "Creating the directory structure at `{{SCOUT_DIR}}`..."
 ### 3a. Create directories
 
 ```bash
-mkdir -p "{{SCOUT_DIR}}"/{knowledge-base/projects,action-items/archive,docs,.scout-logs}
+mkdir -p "{{SCOUT_DIR}}"/{knowledge-base/projects,knowledge-base/ontology/entities,knowledge-base/people,knowledge-base/personal,action-items/archive,docs,scripts,.scout-logs}
 ```
 
 ### 3b. Process template files
@@ -204,6 +209,8 @@ The plugin's template files are in `${CLAUDE_PLUGIN_ROOT}/templates/`. Read each
 | `{{GRANOLA_ENABLED}}` | "true" or "false" |
 | `{{DRIVE_ENABLED}}` | "true" or "false" |
 | `{{CLAUDE_SESSIONS_ENABLED}}` | "true" or "false" |
+| `{{MAX_BUDGET}}` | e.g., "10" |
+| `{{TIMEZONE}}` | e.g., "America/New_York" |
 | `{{PLATFORM}}` | "macos" or "linux" |
 | `{{BRIEFING_TIME}}` | e.g., "8:03" |
 | `{{CONSOLIDATION_TIMES}}` | e.g., "11:03, 13:07, 17:03" |
@@ -218,6 +225,17 @@ The plugin's template files are in `${CLAUDE_PLUGIN_ROOT}/templates/`. Read each
 4. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/projects/projects.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/projects/projects.md`
 5. Read `${CLAUDE_PLUGIN_ROOT}/templates/docs/Wishlist.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/docs/Wishlist.md`
 6. Read `${CLAUDE_PLUGIN_ROOT}/templates/scout-config.yaml.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scout-config.yaml`
+7. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/research-queue.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/research-queue.md`
+8. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/ontology/schema.yaml.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/ontology/schema.yaml`
+9. Copy `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/ontology/parser.py` -> write to `{{SCOUT_DIR}}/knowledge-base/ontology/parser.py` (no variable replacement needed — this is Python code)
+10. Copy `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/ontology/__init__.py` -> write to `{{SCOUT_DIR}}/knowledge-base/ontology/__init__.py`
+
+**Script templates (after template processing):**
+
+11. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/budget-check.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/budget-check.sh` -> `chmod +x`
+12. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/write-session-cost.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/write-session-cost.sh` -> `chmod +x`
+13. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/rate-limit-detect.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/rate-limit-detect.sh` -> `chmod +x`
+14. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/heartbeat.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/heartbeat.sh` -> `chmod +x`
 
 For each template: read the file content, perform a global find-and-replace for every `{{VARIABLE}}` in the table above, and write the result. If a variable has no value (e.g., `USER_SLACK_ID` when Slack is not connected), replace it with an empty string.
 
@@ -351,9 +369,10 @@ Check the current time:
 date '+%H %Z'
 ```
 
-- **If the hour is {{BRIEFING_HOUR}} ({{BRIEFING_DISPLAY}})** -> run in **MORNING BRIEFING** mode (full cold-start)
+- **If the hour is {{BRIEFING_HOUR}} ({{BRIEFING_DISPLAY}}) AND it's a weekday (Mon-Fri)** -> run in **MORNING BRIEFING** mode (full cold-start)
+- **If the hour is {{BRIEFING_HOUR}} ({{BRIEFING_DISPLAY}}) AND it's a weekend (Sat/Sun)** -> run in **WEEKEND BRIEFING** mode (lighter version)
 - **If the hour is {{CONSOLIDATION_HOURS_DISPLAY}}** -> run in **CONSOLIDATION** mode (lightweight delta)
-- **If any other hour** (manual trigger) -> run in **CONSOLIDATION** mode if today's action items exist, otherwise **MORNING BRIEFING** mode
+- **If any other hour** (manual trigger) -> check day of week: if weekend, use **WEEKEND BRIEFING**; if weekday, use **CONSOLIDATION** if today's action items exist, otherwise **MORNING BRIEFING**
 
 ---
 
@@ -653,15 +672,81 @@ The git commit message serves as the run record. No external notification is sen
 
 **IMPORTANT:** Same rule as SKILL.md — paste the FULL text of each phase section. The `[INSERT: ...]` markers are instructions to you. The final DREAMING.md must be completely self-contained.
 
-### Commit Skill Files
+### Assemble RESEARCH.md
 
-After writing both files:
+Read phase files from `${CLAUDE_PLUGIN_ROOT}/phases/research/`. These are always included regardless of connectors (research uses web tools and `gh` CLI, not MCP connectors).
 
-```bash
-cd "{{SCOUT_DIR}}" && git add SKILL.md DREAMING.md && git commit -m "Add assembled skill files"
+Write `{{SCOUT_DIR}}/RESEARCH.md` with the following structure:
+
+```markdown
+---
+name: {{INSTANCE_NAME_LOWER}}-research
+description: Outward-facing knowledge expansion — enriches KB entities with real-world information from web, docs, and APIs
+---
+
+You are running **{{INSTANCE_NAME}}** in **RESEARCH** mode — the knowledge expansion session. Unlike dreaming (which audits existing KB quality) or consolidation (which captures what happened today), Research goes **outward** — discovering new information about entities, technologies, and trends, then integrating it into the knowledge base.
+
+**Related files:** [[knowledge-base]] | [[DREAMING]] | [[research-queue]] | [[ontology/schema.yaml]]
+
+**BASE_DIR:** `{{SCOUT_DIR}}`
+
+## What Research Does
+
+1. **Select research targets** — Pick entities or topics that would benefit most from external knowledge enrichment.
+2. **Deep research** — Web search, documentation reading, API queries, changelog scanning.
+3. **Knowledge integration** — Update entity files, add new entities, extend relationships.
+4. **Insight synthesis** — Summarize findings, flag actionable items.
+
+## What Research Does NOT Do
+
+- No action items work
+- No "what happened today" scanning (that's consolidation)
+- No KB quality auditing (that's dreaming)
+- No feedback processing (that's dreaming Phase 1)
+- No wishlist work (that's dreaming Phase 3)
+
+---
+
+[INSERT: Full content of phases/core/git-setup.md — with variables replaced]
+
+[INSERT: Full content of phases/research/research-targets.md — Phase 1]
+
+[INSERT: Full content of phases/research/deep-research.md — Phase 2]
+
+[INSERT: Full content of phases/research/knowledge-integration.md — Phase 3]
+
+[INSERT: Full content of phases/research/commit-notify.md — Phase 4]
+
+---
+
+## KB Management Rules
+
+Same rules as dreaming and consolidation:
+- Use `[[wikilinks]]` for all internal references
+- Never use `index.md` — name files after their folder
+- Never reorganize the folder structure
+- Follow verification levels: no marker = 2+ sources, [single-source], [unverified], [stale]
+- Send uncertain claims to `knowledge-base/review-queue.md`
+- Use `gh` CLI for all GitHub operations
+
+## {{USER_NAME}}'s Details
+
+- **Email:** {{USER_EMAIL}}
+[If Slack is enabled:] - **Slack ID:** {{USER_SLACK_ID}}
+[If GitHub is enabled:] - **GitHub:** {{GITHUB_USERNAME}}
 ```
 
-Tell the user: "Skill files assembled. SKILL.md covers morning briefings and consolidation. DREAMING.md covers evening self-improvement. Both are tailored to your connected tools."
+**IMPORTANT:** Same assembly rules — paste the FULL text of each phase section. The final RESEARCH.md must be completely self-contained.
+
+### Commit Skill Files
+
+After writing all three files:
+
+```bash
+cd "{{SCOUT_DIR}}" && git add SKILL.md DREAMING.md RESEARCH.md && git commit -m "Add assembled skill files"
+```
+
+Tell the user: "Skill files assembled. SKILL.md covers morning briefings, weekend briefings, and consolidation. DREAMING.md covers evening self-improvement. RESEARCH.md covers knowledge expansion. All are tailored to your connected tools."
 
 ---
 
@@ -731,6 +816,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/templates/run-scout.sh.tmpl`. Replace all `{{VARIABL
 
 Read `${CLAUDE_PLUGIN_ROOT}/templates/run-dreaming.sh.tmpl`. Replace all `{{VARIABLES}}`. Write to `{{SCOUT_DIR}}/run-dreaming.sh`. Make executable with `chmod +x`.
 
+Read `${CLAUDE_PLUGIN_ROOT}/templates/run-research.sh.tmpl`. Replace all `{{VARIABLES}}`. Write to `{{SCOUT_DIR}}/run-research.sh`. Make executable with `chmod +x`.
+
 **2. Generate plist files**
 
 Read `${CLAUDE_PLUGIN_ROOT}/templates/launchd-plist.tmpl`.
@@ -782,7 +869,7 @@ If the grep returns results, tell the user the schedule is active. If not, tell 
 
 If `PLATFORM` is "linux":
 
-**1. Write runner scripts** (same as macOS — write run-scout.sh and run-dreaming.sh to SCOUT_DIR, chmod +x)
+**1. Write runner scripts** (same as macOS — write run-scout.sh, run-dreaming.sh, and run-research.sh to SCOUT_DIR, chmod +x)
 
 **2. Generate cron entries**
 

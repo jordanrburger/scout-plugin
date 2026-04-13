@@ -1,0 +1,66 @@
+#!/bin/bash
+# Rate limit detection — scans a session log for rate limit signals
+#
+# Exit codes:
+#   0 = rate limit detected
+#   1 = no rate limit detected
+#   2 = no log file provided or file doesn't exist
+#
+# Usage: rate-limit-detect.sh <log_file> [--write-tracker]
+#   --write-tracker: append a rate_limit event to usage-tracker.jsonl
+
+set -euo pipefail
+
+LOG_FILE="${1:-}"
+WRITE_TRACKER="${2:-}"
+TRACKER_FILE="{{SCOUT_DIR}}/.scout-logs/usage-tracker.jsonl"
+
+if [ -z "$LOG_FILE" ] || [ ! -f "$LOG_FILE" ]; then
+    exit 2
+fi
+
+# Patterns that indicate rate limiting or capacity issues
+PATTERNS=(
+    'rate.?limit'
+    'rate_limit'
+    '429'
+    'too many requests'
+    'overloaded'
+    'throttl'
+    'capacity'
+    'ERR_OVERLOADED'
+    'Request too large'
+    'credit balance'
+    'usage limit'
+    'token limit exceeded'
+)
+
+# Build a combined grep pattern
+COMBINED=""
+for p in "${PATTERNS[@]}"; do
+    if [ -z "$COMBINED" ]; then
+        COMBINED="$p"
+    else
+        COMBINED="$COMBINED|$p"
+    fi
+done
+
+# Search the log (last 100 lines — rate limits appear near session end)
+MATCHES=$(tail -100 "$LOG_FILE" | grep -iE "$COMBINED" 2>/dev/null || true)
+
+if [ -z "$MATCHES" ]; then
+    exit 1
+fi
+
+# Rate limit detected — extract the first matching line for context
+FIRST_MATCH=$(echo "$MATCHES" | head -1 | cut -c1-200)
+
+if [ "$WRITE_TRACKER" = "--write-tracker" ]; then
+    TIMESTAMP=$(TZ=UTC date '+%Y-%m-%dT%H:%M:%SZ')
+    TIMESTAMP_ET=$(TZ={{TIMEZONE}} date '+%Y-%m-%d %H:%M %Z')
+    mkdir -p "$(dirname "$TRACKER_FILE")"
+    ESCAPED_MATCH=$(echo "$FIRST_MATCH" | sed 's/"/\\"/g' | tr -d '\n')
+    echo "{\"ts\":\"$TIMESTAMP\",\"ts_et\":\"$TIMESTAMP_ET\",\"type\":\"rate_limit\",\"signal\":\"$ESCAPED_MATCH\",\"log_file\":\"$(basename "$LOG_FILE")\"}" >> "$TRACKER_FILE"
+fi
+
+exit 0

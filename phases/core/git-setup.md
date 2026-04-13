@@ -2,7 +2,7 @@
 phase: core
 name: git-setup
 slot: setup
-mode: [briefing, consolidation, dreaming]
+mode: [briefing, consolidation, dreaming, research]
 requires: null
 ---
 
@@ -28,3 +28,21 @@ Git is a core part of the {{INSTANCE_NAME}} system — every change is committed
 - `git show <commit>` — inspect a specific change when you need provenance
 
 The commit history is as valuable as the files themselves. When verifying KB claims or understanding what was already audited, check git before querying connectors.
+
+## GitHub Access via `gh` CLI
+
+All GitHub operations use the `gh` CLI, which is authenticated and has full access to both public and private repos. **Do not use GitHub MCP tools** — they have limited scope.
+
+## Timezone Handling
+
+The sandbox/server clock may run in UTC. You **must** use the configured timezone for all time checks and timestamp generation throughout the run. Never use bare `date` — always prefix with `TZ={{TIMEZONE}}` (or the timezone specified in your config).
+
+## Session Cost Reporting (Final Action)
+
+As the very last action before exit, log this session's cost:
+
+```bash
+{{SCOUT_DIR}}/scripts/write-session-cost.sh "$SESSION_TYPE" "${CLAUDE_MAX_BUDGET_USD:-0}" "${CLAUDE_BUDGET_SPENT_USD:-0}" 0
+```
+
+This feeds the budget-check system. If budget environment variables aren't available, pass `0` — the tracker still logs the timestamp and type.

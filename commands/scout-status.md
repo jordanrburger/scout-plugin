@@ -63,7 +63,7 @@ Run all of the following data-gathering steps before composing the dashboard out
 git -C "SCOUT_DIR" log --oneline -10
 ```
 
-Collect the 10 most recent commit messages. Identify the most recent commit that mentions "briefing", "consolidation", and "dreaming" respectively (case-insensitive match on the commit message).
+Collect the 10 most recent commit messages. Identify the most recent commit that mentions "briefing", "consolidation", "dreaming", and "research" respectively (case-insensitive match on the commit message).
 
 ### 3b. KB Health
 
@@ -179,6 +179,7 @@ Then below the list, highlight:
   Last briefing:       <commit message and date/time if identifiable>
   Last consolidation:  <commit message and date/time if identifiable>
   Last dreaming:       <commit message and date/time if identifiable>
+  Last research:       <commit message and date/time if identifiable>
 ```
 
 If a run type hasn't happened yet, show: `(none found)`
@@ -261,6 +262,52 @@ If no entries are found for this instance:
 ```
   ⚠️  No launchd plists found for '<INSTANCE_NAME_LOWER>'. Scheduler may not be configured.
   Run `/scout-setup` and choose "Reconfigure" to set up scheduling.
+```
+
+---
+
+### Knowledge Graph Health
+
+Run the ontology parser to check the knowledge graph:
+
+```bash
+cd "SCOUT_DIR" && python knowledge-base/ontology/parser.py stats 2>/dev/null
+cd "SCOUT_DIR" && python knowledge-base/ontology/parser.py validate 2>/dev/null
+```
+
+If the parser is available and succeeds, show:
+
+```
+  Entities:       X (Y person, Z project, ...)
+  Relationships:  N
+  Validation:     X errors / No errors
+```
+
+If the parser isn't set up (file doesn't exist or Python error), show:
+
+```
+  Knowledge graph not configured. Run /scout-setup to set up the ontology.
+```
+
+---
+
+### Budget Tracking
+
+Check if a usage tracker file exists at `SCOUT_DIR/.scout-logs/usage-tracker.jsonl`.
+
+If it exists, parse the last 24 hours of entries and show:
+
+```
+  Sessions today:      N (briefing: X, consolidation: Y, dreaming: Z, research: W)
+  Estimated spend:     $X.XX (last 24h)
+  Last failure:        <time and type, or "none">
+  Rate limit events:   N in last 24h
+```
+
+If it doesn't exist:
+
+```
+  No usage tracking data yet. Cost tracking begins after the first run.
 ```
 
 ---
