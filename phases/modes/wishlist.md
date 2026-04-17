@@ -14,13 +14,21 @@ Process items from {{USER_NAME}}'s wishlist — feature requests, improvements, 
 
 ### Step 3a: Read the Wishlist
 
-Read `docs/Wishlist.md`. Understand the current state of every item using these conventions:
+Read the three wishlist files, in this order:
 
-| Format | State |
-|---|---|
-| Bare text (no marker) | Not started |
-| `[in progress]` suffix or prefix | Work has begun but is not complete |
-| `[done]` suffix or ~~strikethrough~~ | Completed |
+1. `docs/Wishlist.md` — new items, not yet picked up
+2. `docs/Wishlist-in-progress.md` — items actively being worked on across dreaming runs
+3. `docs/Wishlist-done.md` — archive of completed items (read only to avoid re-doing work)
+
+Item-state conventions:
+
+| Format | State | Typical location |
+|---|---|---|
+| Bare text (no marker) | Not started | `Wishlist.md` |
+| `[in progress]` suffix or prefix | Work has begun | `Wishlist-in-progress.md` (move here when you start) |
+| `[done]` suffix or ~~strikethrough~~ | Completed | `Wishlist-done.md` (move here after completion) |
+
+The three-file split keeps the active wishlist token-efficient. When you start a new item, move it from `Wishlist.md` into `Wishlist-in-progress.md`. When you finish an item, move it from `Wishlist-in-progress.md` into `Wishlist-done.md`.
 
 Identify all items and their current state before proceeding.
 
@@ -59,28 +67,32 @@ Select actionable items and push as far as possible. Don't artificially limit yo
 
 ---
 
-### Step 3d: Update the Wishlist
+### Step 3d: Update the Wishlist Files
 
-After executing (or deciding to skip), update `docs/Wishlist.md`:
+After executing (or deciding to skip), move items between the three files as appropriate.
 
-**For completed items:**
+**For completed items → `docs/Wishlist-done.md`:**
 ```markdown
 - ~~Original item text~~ [done] — Delivered in dreaming run [date]. [One-sentence description of what was created/changed.]
 ```
+Delete the item from `Wishlist.md` or `Wishlist-in-progress.md` (wherever it lived) in the same commit.
 
-**For partially completed items (multi-run):**
+**For newly-started items → `docs/Wishlist-in-progress.md`:**
+Move the item out of `Wishlist.md` and into `Wishlist-in-progress.md` with sub-tasks spelled out:
 ```markdown
 - Original item text [in progress]
   - [x] Sub-task 1 — completed [date]
-  - [x] Sub-task 2 — completed [date]
+  - [ ] Sub-task 2 — remaining
   - [ ] Sub-task 3 — remaining
-  - [ ] Sub-task 4 — remaining
 ```
 
-**For items skipped as ambiguous:**
-Do not modify the item. Leave it as-is for {{USER_NAME}} to clarify. Optionally add a comment in the session log noting which item was skipped and why.
+**For items continuing from a prior run:**
+Update the checkbox list in `Wishlist-in-progress.md` in place. Add newly-identified sub-tasks as needed.
 
-**Archive done items:** Move any `[done]` items (including their description and implementation notes) from `docs/Wishlist.md` to `docs/Wishlist-done.md` and delete them from the active file. This keeps the active wishlist small and token-efficient.
+**For items skipped as ambiguous:**
+Do not move or modify the item. Leave it in `Wishlist.md` for {{USER_NAME}} to clarify. Optionally log which item was skipped and why in the session summary.
+
+The three-file split is how the active wishlist stays token-efficient. Never leave `[done]` items sitting in `Wishlist.md` — they belong in `Wishlist-done.md`.
 
 ---
 

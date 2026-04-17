@@ -12,6 +12,20 @@ This is the substantive knowledge-base improvement phase. Score every KB file, p
 
 ---
 
+### Step 2-cache: Read the Pre-Session Caches
+
+Before doing anything else, read the caches that the runner script generated before Claude started. These are already on disk — don't re-query what they already contain.
+
+| Cache file | What's in it | Replaces |
+|---|---|---|
+| `.scout-cache/kb-filter.md` | Per-file staleness: which KB files are stale, fresh, or undated, with ages | Walking every KB file to check "Last updated" headers |
+| `.scout-cache/session-context.json` | Recent git log, open PRs, PR review requests, KB file dates, open personal tasks | Running `git log`, `gh pr list`, `gh search prs`, parser queries |
+| `.scout-cache/cc-sessions.md` | Non-{{INSTANCE_NAME}} Claude Code sessions from the last 24h: project paths, first prompts, files touched | Manually discovering + parsing `~/.claude/projects/*/**.jsonl` |
+
+Prefer these caches over live tool calls during scoring. Fall back to live queries only when a cache is missing, obviously stale, or you need deeper detail (e.g., full PR diff, full session transcript).
+
+---
+
 ### Step 2-pre: Scan for Inline Comments
 
 Before scoring files, search all `.md` files under `{{SCOUT_DIR}}` for {{USER_NAME}}'s inline comment markers:

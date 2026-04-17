@@ -181,8 +181,10 @@ Tell the user: "Creating the directory structure at `{{SCOUT_DIR}}`..."
 ### 3a. Create directories
 
 ```bash
-mkdir -p "{{SCOUT_DIR}}"/{knowledge-base/projects,knowledge-base/ontology/entities,knowledge-base/people,knowledge-base/personal,action-items/archive,docs,scripts,.scout-logs}
+mkdir -p "{{SCOUT_DIR}}"/{knowledge-base/projects,knowledge-base/ontology/entities,knowledge-base/people,knowledge-base/personal,action-items/archive,action-items/meeting-prep,docs,scripts,hooks,.scout-logs,.scout-cache}
 ```
+
+The `hooks/` directory holds pre-session hook scripts that runner scripts call before launching Claude. The `.scout-cache/` directory is where those hooks write their output for the skill files to consume at runtime. Both are gitignored — they're recomputed on every run.
 
 ### 3b. Process template files
 
@@ -224,6 +226,8 @@ The plugin's template files are in `${CLAUDE_PLUGIN_ROOT}/templates/`. Read each
 3. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/channels.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/channels.md`
 4. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/projects/projects.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/projects/projects.md`
 5. Read `${CLAUDE_PLUGIN_ROOT}/templates/docs/Wishlist.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/docs/Wishlist.md`
+5a. Read `${CLAUDE_PLUGIN_ROOT}/templates/docs/Wishlist-in-progress.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/docs/Wishlist-in-progress.md`
+5b. Read `${CLAUDE_PLUGIN_ROOT}/templates/docs/Wishlist-done.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/docs/Wishlist-done.md`
 6. Read `${CLAUDE_PLUGIN_ROOT}/templates/scout-config.yaml.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scout-config.yaml`
 7. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/research-queue.md.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/research-queue.md`
 8. Read `${CLAUDE_PLUGIN_ROOT}/templates/knowledge-base/ontology/schema.yaml.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/knowledge-base/ontology/schema.yaml`
@@ -237,6 +241,17 @@ The plugin's template files are in `${CLAUDE_PLUGIN_ROOT}/templates/`. Read each
 13. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/rate-limit-detect.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/rate-limit-detect.sh` -> `chmod +x`
 14. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/heartbeat.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/heartbeat.sh` -> `chmod +x`
 
+**Pre-session hook templates (new in v0.3.0):**
+
+15. Read `${CLAUDE_PLUGIN_ROOT}/templates/hooks/kb-pre-filter.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/hooks/kb-pre-filter.sh` -> `chmod +x`
+16. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/pre-session-data.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/pre-session-data.sh` -> `chmod +x`
+17. Read `${CLAUDE_PLUGIN_ROOT}/templates/scripts/cc-session-cache.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/scripts/cc-session-cache.sh` -> `chmod +x`
+
+**Action-items dashboard templates (optional GUI, new in v0.3.0):**
+
+18. Copy `${CLAUDE_PLUGIN_ROOT}/templates/action-items/render.py` -> write to `{{SCOUT_DIR}}/action-items/render.py` (no variable replacement — standalone Python script). After copying, `chmod +x` is not required; the script is invoked via `python3`.
+19. Read `${CLAUDE_PLUGIN_ROOT}/templates/action-items/watch.sh.tmpl` -> replace variables -> write to `{{SCOUT_DIR}}/action-items/watch.sh` -> `chmod +x`
+
 For each template: read the file content, perform a global find-and-replace for every `{{VARIABLE}}` in the table above, and write the result. If a variable has no value (e.g., `USER_SLACK_ID` when Slack is not connected), replace it with an empty string.
 
 ### 3c. Create additional files
@@ -245,8 +260,11 @@ For each template: read the file content, perform a global find-and-replace for 
 
 ```
 .scout-logs/
+.scout-cache/
 .obsidian/
 .DS_Store
+__pycache__/
+*.pyc
 ```
 
 **`dreaming-proposals.md`** at `{{SCOUT_DIR}}/dreaming-proposals.md`:

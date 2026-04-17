@@ -63,7 +63,7 @@ Run all of the following data-gathering steps before composing the dashboard out
 git -C "SCOUT_DIR" log --oneline -10
 ```
 
-Collect the 10 most recent commit messages. Identify the most recent commit that mentions "briefing", "consolidation", "dreaming", and "research" respectively (case-insensitive match on the commit message).
+Collect the 10 most recent commit messages. Identify the most recent commit that mentions "briefing", "consolidation", "dreaming", "research", "work", and "meta-review" respectively (case-insensitive match on the commit message).
 
 ### 3b. KB Health
 
@@ -102,9 +102,11 @@ Count how many Pending and Approved proposals exist.
 
 ### 3d. Wishlist
 
-Read `SCOUT_DIR/docs/Wishlist.md` (if it exists).
+Read `SCOUT_DIR/docs/Wishlist.md` and `SCOUT_DIR/docs/Wishlist-in-progress.md` (if either exists). The three-file split (Wishlist / Wishlist-in-progress / Wishlist-done) means active items can live in either of the first two files.
 
-Collect all items that are NOT marked `[done]`. An item is done if the line starts with `- [done]`. Items marked `[in progress]` or with no status marker are considered active.
+Collect all items that are NOT marked `[done]`. An item is done if the line starts with `- [done]` or is marked with `~~strikethrough~~`. Items marked `[in progress]` or with no status marker are considered active.
+
+Count items in each file separately so the dashboard can report: "3 new, 2 in progress."
 
 ### 3e. Scheduler Health (macOS only)
 
@@ -180,6 +182,8 @@ Then below the list, highlight:
   Last consolidation:  <commit message and date/time if identifiable>
   Last dreaming:       <commit message and date/time if identifiable>
   Last research:       <commit message and date/time if identifiable>
+  Last work session:   <commit message and date/time if identifiable>
+  Last meta-review:    <commit message and date/time if identifiable>
 ```
 
 If a run type hasn't happened yet, show: `(none found)`

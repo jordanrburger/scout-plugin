@@ -1,9 +1,18 @@
+# {{INSTANCE_NAME}} configuration
+# Budget defaults here are a STARTING point — calibrate after ~2 weeks of real session
+# data by analyzing .scout-logs/usage-tracker.jsonl. Typical per-session costs observed:
+#   Dreaming:      ~$5/session (most expensive — does full KB scoring + Phase 1-3)
+#   Briefing:      ~$4/session (full connector sweep + cross-check)
+#   Consolidation: ~$4/session
+#   Research:      ~$2.50/session (scoped external research)
+
 instance_name: {{INSTANCE_NAME}}
 user:
   name: {{USER_NAME}}
   email: {{USER_EMAIL}}
   slack_id: {{USER_SLACK_ID}}
   github_username: {{GITHUB_USERNAME}}
+
 connectors:
   slack: {{SLACK_ENABLED}}
   calendar: {{CALENDAR_ENABLED}}
@@ -13,11 +22,38 @@ connectors:
   granola: {{GRANOLA_ENABLED}}
   drive: {{DRIVE_ENABLED}}
   claude_sessions: {{CLAUDE_SESSIONS_ENABLED}}
+
 schedule:
   briefing: "{{BRIEFING_TIME}}"
   consolidation: [{{CONSOLIDATION_TIMES}}]
   dreaming: [{{DREAMING_TIMES}}]
   weekdays_only: {{WEEKDAYS_ONLY}}
+
 platform: {{PLATFORM}}
 scout_dir: {{SCOUT_DIR}}
+timezone: {{TIMEZONE}}
 github_repos: [{{GITHUB_REPOS}}]
+
+# Budget + session-limit awareness — consumed by scripts/budget-check.sh,
+# scripts/heartbeat.sh, and scripts/rate-limit-detect.sh.
+plan:
+  type: claude-max
+  daily_budget_estimate_usd: 150
+  rate_limit_window_hours: 3
+
+sessions:
+  max_per_session_usd: {{MAX_BUDGET}}
+  min_session_gap_minutes: 30
+
+thresholds:
+  # Skip session if cumulative cost in the rolling window exceeds this % of window budget.
+  skip_threshold_pct: 90
+  # Heartbeat triggers an extra session if remaining window budget is at least this %.
+  extra_session_threshold_pct: 30
+  # Back off this many minutes after a failed/rate-limited run (rate limits get 2× this).
+  failure_backoff_minutes: 30
+
+off_peak:
+  # Off-peak hours (local time) — heartbeat prefers these for opportunistic sessions.
+  start: 23
+  end: 6

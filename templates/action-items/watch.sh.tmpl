@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# action-items/watch.sh — auto-regenerate the action-items HTML dashboard
+# whenever the source markdown changes. Useful while you're working an action
+# items file and want a live-updating browser view.
+#
+# Usage:
+#   ./action-items/watch.sh                 # today's file (in configured timezone)
+#   ./action-items/watch.sh 2026-04-17      # specific date
+#   ./action-items/watch.sh path/to/file.md # explicit path
+#
+# Uses fswatch if available (efficient), polling every 2s as a fallback.
+
+set -euo pipefail
+
+SCOUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$SCOUT_DIR"
+
+ARG="${1:-}"
+if [[ -z "$ARG" ]]; then
+  DATE="$(TZ={{TIMEZONE}} date '+%Y-%m-%d')"
+  MD="action-items/action-items-${DATE}.md"
+elif [[ -f "$ARG" ]]; then
+  MD="$ARG"
+elif [[ "$ARG" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  MD="action-items/action-items-${ARG}.md"
+else
+  echo "Unrecognized argument: $ARG (expected date YYYY-MM-DD or a path)" >&2
+  exit 2
+fi
+
+if [[ ! -f "$MD" ]]; then
+  echo "Not found: $MD" >&2
+  exit 1
+fi
+
+# render.py writes the HTML next to the MD by default, but the convention is
+# to keep the rendered dashboard at repo root as action-items-YYYY-MM-DD.html
+# so it's easy to open. Pass the target path explicitly.
+BASENAME="$(basename "$MD" .md)"
+HTML="${SCOUT_DIR}/${BASENAME}.html"
+
+render() {
+  if python3 action-items/render.py "$MD" "$HTML" >/dev/null; then
+    echo "[$(TZ={{TIMEZONE}} date '+%H:%M:%S')] rendered $(basename "$HTML")"
+  else
+    echo "[$(TZ={{TIMEZONE}} date '+%H:%M:%S')] render failed for $MD" >&2
+  fi
+}
+
+render
+
+if command -v fswatch >/dev/null 2>&1; then
+  echo "Watching $MD with fswatch… (Ctrl-C to stop)"
+  fswatch -o "$MD" | while read -r _; do render; done
+else
+  echo "fswatch not installed; polling $MD every 2s. For efficiency: brew install fswatch"
+  LAST="$(stat -f %m "$MD" 2>/dev/null || stat -c %Y "$MD")"
+  while :; do
+    sleep 2
+    NOW="$(stat -f %m "$MD" 2>/dev/null || stat -c %Y "$MD")"
+    if [[ "$NOW" != "$LAST" ]]; then
+      LAST="$NOW"
+      render
+    fi
+  done
+fi
