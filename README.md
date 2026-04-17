@@ -29,9 +29,16 @@ Launch sessions manually with skills:
 /scout-research       # Knowledge expansion
 ```
 
+Or run interactive sessions in the current conversation:
+
+```
+/scout-work           # Walk through today's action items one at a time, approve each action
+/scout-meta-review    # System-level audit — are sessions running, is the mistake audit trending well, are proposals flowing?
+```
+
 ## How It Works
 
-Four session types form a daily rhythm:
+Six session types, split into **scheduled background sessions** (Briefing, Consolidation, Dreaming, Research) and **interactive conversation sessions** (Work, Meta Review):
 
 ### Morning Briefing (once per day, weekdays)
 
@@ -69,7 +76,29 @@ Knowledge expansion:
 3. **Knowledge integration** — Updates entity files, extends the knowledge graph with new relationships, creates new entity files for discovered entities. Validates against the ontology schema.
 4. **Commit & notify** — Commits findings, updates the session log, sends a concise summary to the user.
 
+### Work (interactive, user-triggered)
+
+Runs in the current conversation instead of as a background process. Walks through today's action items one at a time — presenting each item with fresh context (latest PR state, last Slack reply, meeting conflicts), a recommended action, and a draft of any outbound message or command. Executes each item only with explicit approval (`do it`, `skip`, or a modification).
+
+Commits land in the git log as `work [HH:MM]: <summary>`, distinguishing manual work from scheduled runs.
+
+### Meta Review (interactive, diagnostic)
+
+A system-level audit that sits above the individual session types. Does not read SKILL.md or DREAMING.md — instead it reviews the Scout system itself: are sessions actually running? Is the mistake audit trending better or worse? Are dreaming proposals flowing or clogged? Is the data-source coverage matrix consistent across session types? Writes a report to `knowledge-base/meta-review-YYYY-MM-DD.md`, applies low-risk quick fixes directly, and writes proposals for anything that needs judgment. Run weekly, or when something feels off.
+
 Everything is a git repo. Every change Scout makes is committed with a descriptive message. The commit history is as much a part of the system as the files.
+
+## Pre-Session Hooks
+
+Scout's runner scripts call three shell hooks before launching Claude. Each hook writes a cache file into `.scout-cache/`, which the skill files read instead of running the same queries from inside the session. This trades a few seconds of shell work for a meaningful reduction in tool calls and tokens per session.
+
+| Hook | Output | What it replaces |
+|------|--------|-----------------|
+| `hooks/kb-pre-filter.sh` | `.scout-cache/kb-filter.md` — KB files bucketed into stale / fresh / undated, with ages | Walking every KB file from inside the session to check "Last updated" dates |
+| `scripts/pre-session-data.sh` | `.scout-cache/session-context.json` — recent git log, open PRs, PR review requests, KB file dates, open personal tasks | `git log`, `gh pr list`, `gh search prs`, ontology parser queries |
+| `scripts/cc-session-cache.sh` | `.scout-cache/cc-sessions.md` — non-Scout Claude Code sessions from the last 24h: project paths, first prompts, files touched | Discovering + parsing `~/.claude/projects/*/*.jsonl` manually |
+
+The `.scout-cache/` directory is gitignored — everything in it is recomputed on every run. If a hook fails, the runner script continues anyway and the skill falls back to live queries. Hooks never block a run.
 
 ## Supported Connectors
 
@@ -163,17 +192,30 @@ scout-plugin/
   commands/
     scout-setup.md          -- Interactive setup wizard
     scout-status.md         -- Dashboard command
+    scout-work.md           -- Interactive work session (in-conversation)
+    scout-meta-review.md    -- System-level diagnostic audit (in-conversation)
   skills/
-    scout-briefing.md       -- Launch a briefing session
-    scout-consolidation.md  -- Launch a consolidation session
-    scout-dream.md          -- Launch a dreaming session
-    scout-research.md       -- Launch a research session
+    scout-briefing.md       -- Launch a briefing session (background)
+    scout-consolidation.md  -- Launch a consolidation session (background)
+    scout-dream.md          -- Launch a dreaming session (background)
+    scout-research.md       -- Launch a research session (background)
   phases/
     core/                   -- Always included (git, KB management, action items)
     connectors/             -- One per tool (Slack, Calendar, Linear, etc.)
     modes/                  -- Dreaming-specific (feedback, KB deep work, wishlist)
     research/               -- Research session phases
-  templates/                -- Runner scripts, schedulers, KB scaffold, ontology, scripts
+  templates/
+    hooks/                  -- Pre-session hooks (kb-pre-filter)
+    scripts/                -- Budget tracking + pre-session data gathering
+    action-items/           -- MD-to-HTML dashboard renderer + file watcher
+    docs/                   -- Wishlist templates (active / in-progress / done)
+    knowledge-base/         -- KB scaffold and ontology
+    run-scout.sh.tmpl
+    run-dreaming.sh.tmpl
+    run-research.sh.tmpl
+    scout-config.yaml.tmpl
+    launchd-plist.tmpl
+    cron-entry.tmpl
 ```
 
 ### What gets created in your Scout directory
@@ -183,16 +225,20 @@ scout-plugin/
   SKILL.md                  -- Assembled skill file (briefing + consolidation)
   DREAMING.md               -- Assembled skill file (dreaming)
   RESEARCH.md               -- Assembled skill file (research)
-  run-scout.sh              -- Briefing/consolidation runner
-  run-dreaming.sh           -- Dreaming runner
+  run-scout.sh              -- Briefing/consolidation runner (calls pre-session hooks)
+  run-dreaming.sh           -- Dreaming runner (calls pre-session hooks)
   run-research.sh           -- Research runner
   scout-config.yaml         -- Your configuration
   dreaming-proposals.md     -- Proposal gate for skill improvements
+  hooks/
+    kb-pre-filter.sh        -- Pre-session: bucket KB files by staleness
   scripts/
     budget-check.sh         -- Pre-run budget verification
     write-session-cost.sh   -- Session cost logging
     rate-limit-detect.sh    -- Rate limit signal detection
     heartbeat.sh            -- Opportunistic session triggering
+    pre-session-data.sh     -- Pre-session: gather git log, PRs, KB dates, tasks
+    cc-session-cache.sh     -- Pre-session: summarize non-Scout CC sessions
   knowledge-base/           -- Your persistent knowledge base (Obsidian vault)
     ontology/
       schema.yaml           -- Knowledge graph schema
@@ -202,8 +248,19 @@ scout-plugin/
     personal/               -- Personal task and family entity files
     projects/               -- Project files
     research-queue.md       -- Queued research topics
+    scout-mistake-audit.md  -- Error-pattern log written by dreaming
+    review-queue.md         -- Claims waiting on user verification
   action-items/             -- Daily action items
-  docs/Wishlist.md          -- Feature requests for your instance
+    archive/                -- Older-than-7-days action items
+    meeting-prep/           -- Auto-generated meeting prep docs
+    render.py               -- Optional MD → HTML dashboard
+    watch.sh                -- Auto-re-render HTML on MD change (fswatch)
+  docs/
+    Wishlist.md             -- New feature requests
+    Wishlist-in-progress.md -- Active work, with sub-task checkboxes
+    Wishlist-done.md        -- Completed items archive
+  .scout-cache/             -- Hook outputs (gitignored, regenerated every run)
+  .scout-logs/              -- Run logs and usage-tracker.jsonl (gitignored)
 ```
 
 The assembled skill files are self-contained — they don't reference the plugin at runtime. You can customize them freely. Run `/scout-setup` again to regenerate from the latest phase modules.

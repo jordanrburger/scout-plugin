@@ -1,9 +1,13 @@
 #!/bin/bash
 # Write session cost entry to the usage tracker
-# Called by sessions as their final action before exit
+# Called by {{INSTANCE_NAME}} sessions as their final action before exit
 #
-# Usage: write-session-cost.sh <type> <budget_cap> <budget_spent> [exit_code]
-# Example: write-session-cost.sh dreaming 10 7.42 0
+# Usage: write-session-cost.sh <type> <budget_cap> <budget_spent> [exit_code] [source]
+# Example: write-session-cost.sh dreaming 10 7.42 0 session
+#
+# source: "session" (actual Claude-reported cost) or "runner" (fallback from shell script).
+# budget-check.sh uses source=session entries for cost calculations — runner entries
+# exist only so crashed sessions still leave a row, and get $0 as the spent amount.
 
 set -euo pipefail
 
@@ -11,11 +15,36 @@ TRACKER_FILE="{{SCOUT_DIR}}/.scout-logs/usage-tracker.jsonl"
 mkdir -p "$(dirname "$TRACKER_FILE")"
 
 TYPE="${1:-unknown}"
-BUDGET_CAP="${2:-0}"
-BUDGET_SPENT="${3:-0}"
+BUDGET_CAP_RAW="${2:-0}"
+BUDGET_SPENT_RAW="${3:-0}"
 EXIT_CODE="${4:-0}"
+SOURCE="${5:-session}"
 TIMESTAMP=$(TZ=UTC date '+%Y-%m-%dT%H:%M:%SZ')
-TIMESTAMP_ET=$(TZ={{TIMEZONE}} date '+%Y-%m-%d %H:%M %Z')
+TIMESTAMP_LOCAL=$(TZ={{TIMEZONE}} date '+%Y-%m-%d %H:%M %Z')
 
-# Write JSON line
-echo "{\"ts\":\"$TIMESTAMP\",\"ts_et\":\"$TIMESTAMP_ET\",\"type\":\"$TYPE\",\"budget_cap\":$BUDGET_CAP,\"budget_spent\":$BUDGET_SPENT,\"exit_code\":$EXIT_CODE}" >> "$TRACKER_FILE"
+# Numeric validation — falls back to 0 if the arg isn't a plain number.
+# Prevents malformed JSON when the caller accidentally passes a summary string,
+# a timestamp, or the literal word "session" (arg-order confusion observed in practice).
+is_numeric() {
+    [[ "$1" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]
+}
+
+if is_numeric "$BUDGET_CAP_RAW"; then
+    BUDGET_CAP="$BUDGET_CAP_RAW"
+else
+    echo "write-session-cost.sh: non-numeric budget_cap '$BUDGET_CAP_RAW' — falling back to 0" >&2
+    BUDGET_CAP=0
+fi
+
+if is_numeric "$BUDGET_SPENT_RAW"; then
+    BUDGET_SPENT="$BUDGET_SPENT_RAW"
+else
+    echo "write-session-cost.sh: non-numeric budget_spent '$BUDGET_SPENT_RAW' — falling back to 0" >&2
+    BUDGET_SPENT=0
+fi
+
+if ! is_numeric "$EXIT_CODE"; then
+    EXIT_CODE=0
+fi
+
+echo "{\"ts\":\"$TIMESTAMP\",\"ts_local\":\"$TIMESTAMP_LOCAL\",\"type\":\"$TYPE\",\"budget_cap\":$BUDGET_CAP,\"budget_spent\":$BUDGET_SPENT,\"exit_code\":$EXIT_CODE,\"source\":\"$SOURCE\"}" >> "$TRACKER_FILE"

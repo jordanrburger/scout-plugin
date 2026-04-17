@@ -85,8 +85,9 @@ if [ $EXIT_CODE -ne 0 ]; then
     fi
 fi
 
-# Track session cost
+# Track session cost (skill self-reports actual cost from inside the session via the
+# same script; this runner call is a fallback so failed/crashed runs still leave a row).
 COST_TRACKER="$SCOUT_DIR/scripts/write-session-cost.sh"
 if [ -x "$COST_TRACKER" ]; then
-    "$COST_TRACKER" "research" {{MAX_BUDGET}} 0 "$EXIT_CODE" 2>/dev/null || true
+    "$COST_TRACKER" "research" {{MAX_BUDGET}} 0 "$EXIT_CODE" "runner" 2>/dev/null || true
 fi

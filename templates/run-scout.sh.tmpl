@@ -51,16 +51,7 @@ Important:
 
 echo "=== {{INSTANCE_NAME}} run starting at $(date) ===" >> "$LOG_FILE"
 
-# Budget check — skip if we're over the spending threshold
-BUDGET_CHECK="$SCOUT_DIR/scripts/budget-check.sh"
-if [ -x "$BUDGET_CHECK" ]; then
-    if ! "$BUDGET_CHECK" --verbose >> "$LOG_FILE" 2>&1; then
-        echo "=== Budget check: skipping this run ===" >> "$LOG_FILE"
-        exit 0
-    fi
-fi
-
-# Determine mode label for session name
+# Determine mode label for session name (must happen before pre-session hooks that use $MODE)
 HOUR=$(date +%H)
 DAY_OF_WEEK=$(date +%u)  # 1=Mon ... 6=Sat, 7=Sun
 
@@ -77,6 +68,30 @@ else
         {{CONSOLIDATION_HOURS_CASE}}
         *)  MODE="manual" ;;
     esac
+fi
+
+# Pre-session hooks — gather data before Claude starts (saves tool calls inside the session).
+# These write to .scout-cache/ for the skill files to consume.
+PRE_FILTER="$SCOUT_DIR/hooks/kb-pre-filter.sh"
+if [ -x "$PRE_FILTER" ]; then
+    "$PRE_FILTER" "$MODE" >> "$LOG_FILE" 2>&1 || true
+fi
+PRE_SESSION="$SCOUT_DIR/scripts/pre-session-data.sh"
+if [ -x "$PRE_SESSION" ]; then
+    "$PRE_SESSION" "$MODE" >> "$LOG_FILE" 2>&1 || true
+fi
+CC_CACHE="$SCOUT_DIR/scripts/cc-session-cache.sh"
+if [ -x "$CC_CACHE" ]; then
+    "$CC_CACHE" 24 >> "$LOG_FILE" 2>&1 || true
+fi
+
+# Budget check — skip if we're over the spending threshold
+BUDGET_CHECK="$SCOUT_DIR/scripts/budget-check.sh"
+if [ -x "$BUDGET_CHECK" ]; then
+    if ! "$BUDGET_CHECK" --verbose >> "$LOG_FILE" 2>&1; then
+        echo "=== Budget check: skipping this run ===" >> "$LOG_FILE"
+        exit 0
+    fi
 fi
 
 START_TIME=$(date +%s)
@@ -106,8 +121,9 @@ if [ $EXIT_CODE -ne 0 ]; then
     fi
 fi
 
-# Track session cost
+# Track session cost (skill self-reports actual cost from inside the session via the
+# same script; this runner call is a fallback so failed/crashed runs still leave a row).
 COST_TRACKER="$SCOUT_DIR/scripts/write-session-cost.sh"
 if [ -x "$COST_TRACKER" ]; then
-    "$COST_TRACKER" "$MODE" {{MAX_BUDGET}} 0 "$EXIT_CODE" 2>/dev/null || true
+    "$COST_TRACKER" "$MODE" {{MAX_BUDGET}} 0 "$EXIT_CODE" "runner" 2>/dev/null || true
 fi

@@ -46,6 +46,21 @@ Important:
 
 echo "=== {{INSTANCE_NAME}} Dreaming run starting at $(date) ===" >> "$LOG_FILE"
 
+# Pre-session hooks — gather data before Claude starts (saves tool calls inside the session).
+# These write to .scout-cache/ for DREAMING.md to consume.
+PRE_FILTER="$SCOUT_DIR/hooks/kb-pre-filter.sh"
+if [ -x "$PRE_FILTER" ]; then
+    "$PRE_FILTER" dreaming >> "$LOG_FILE" 2>&1 || true
+fi
+PRE_SESSION="$SCOUT_DIR/scripts/pre-session-data.sh"
+if [ -x "$PRE_SESSION" ]; then
+    "$PRE_SESSION" dreaming >> "$LOG_FILE" 2>&1 || true
+fi
+CC_CACHE="$SCOUT_DIR/scripts/cc-session-cache.sh"
+if [ -x "$CC_CACHE" ]; then
+    "$CC_CACHE" 24 >> "$LOG_FILE" 2>&1 || true
+fi
+
 # Budget check — skip if we're over the spending threshold
 BUDGET_CHECK="$SCOUT_DIR/scripts/budget-check.sh"
 if [ -x "$BUDGET_CHECK" ]; then
@@ -89,8 +104,9 @@ if [ $EXIT_CODE -ne 0 ]; then
     fi
 fi
 
-# Track session cost
+# Track session cost (skill self-reports actual cost from inside the session via the
+# same script; this runner call is a fallback so failed/crashed runs still leave a row).
 COST_TRACKER="$SCOUT_DIR/scripts/write-session-cost.sh"
 if [ -x "$COST_TRACKER" ]; then
-    "$COST_TRACKER" "dreaming" {{MAX_BUDGET}} 0 "$EXIT_CODE" 2>/dev/null || true
+    "$COST_TRACKER" "dreaming" {{MAX_BUDGET}} 0 "$EXIT_CODE" "runner" 2>/dev/null || true
 fi
