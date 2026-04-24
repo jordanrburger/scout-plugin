@@ -30,11 +30,32 @@ class EngineManifest:
         return json.dumps(asdict(self), indent=2, sort_keys=True)
 
 
+def _list_subcommands() -> list[str]:
+    """Enumerate top-level subcommand names from the live Typer app.
+
+    Local imports keep this off scoutctl's hot path: scout.cli does
+    not import scout.manifest at module top, so the click-graph build
+    happens only when someone explicitly invokes
+    `scoutctl manifest build/show`.
+
+    Returns names sorted for stable JSON output.
+    """
+    import typer.main
+
+    from scout.cli import app as cli_app
+
+    click_group = typer.main.get_command(cli_app)
+    commands = getattr(click_group, "commands", {})
+    return sorted(commands.keys())
+
+
 def build_manifest() -> EngineManifest:
     """Construct the manifest from package state.
 
     Feature flags reflect what this version of the engine promises.
     Plans 2 and 3 flip individual flags to True as subsystems land.
+    Subcommands are derived from the live Typer app — adding a
+    command in scout.cli automatically updates the manifest.
     """
     return EngineManifest(
         version=__version__,
@@ -46,10 +67,7 @@ def build_manifest() -> EngineManifest:
             "kb_ontology_v1": False,
             "tui_v1": False,
         },
-        subcommands=[
-            "version",
-            "manifest",
-        ],
+        subcommands=_list_subcommands(),
     )
 
 
