@@ -1,7 +1,7 @@
 """Layered configuration loader for Scout.
 
 Precedence (low → high, later overrides earlier):
-  1. Engine defaults (engine/defaults/scout-config.yaml, shipped with package)
+  1. Engine defaults (scout/defaults/scout-config.yaml, shipped with package)
   2. User overrides ($SCOUT_DATA_DIR/.scout-config.yaml)
   3. SCOUT_* environment variables (whitelisted keys)
 """
@@ -9,6 +9,7 @@ Precedence (low → high, later overrides earlier):
 from __future__ import annotations
 
 import os
+from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
@@ -16,8 +17,6 @@ import yaml
 
 from scout import paths
 from scout.errors import ConfigError
-
-PACKAGE_DEFAULTS_PATH = Path(__file__).parent.parent / "defaults" / "scout-config.yaml"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -54,9 +53,22 @@ def _env_overrides() -> dict[str, Any]:
     return out
 
 
+def _read_packaged_defaults() -> dict[str, Any]:
+    """Read the shipped scout-config.yaml via importlib.resources.
+
+    Resolving through importlib.resources keeps load_config() working
+    when the package is installed from a wheel — Path(__file__).parent
+    navigation breaks because the defaults sit under scout/defaults/
+    in the installed tree, not relative to a sibling 'engine/' dir.
+    """
+    resource = files("scout") / "defaults" / "scout-config.yaml"
+    with as_file(resource) as path:
+        return _read_yaml(path)
+
+
 def load_config(data_dir: Path | None = None) -> dict[str, Any]:
     """Load the three-layer merged config."""
-    defaults = _read_yaml(PACKAGE_DEFAULTS_PATH)
+    defaults = _read_packaged_defaults()
     user_path = paths.config_path(data_dir)
     user_overrides = _read_yaml(user_path)
     env_overrides = _env_overrides()
