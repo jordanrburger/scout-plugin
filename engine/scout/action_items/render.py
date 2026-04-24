@@ -8,6 +8,13 @@ Public API
 render(path: Path) -> str
     Parse *path* and return a complete HTML string.  Raises
     ``scout.errors.ActionItemError`` if the file is not found.
+
+parse(md_path: Path) -> tuple[str, list[str], list[Section]]
+    Lower-level entry point: returns (title, preamble paragraphs,
+    sections) for callers that want the structured form (e.g., a TUI
+    dashboard or the Plan 6 EngineClient). The dataclasses
+    ``Comment``, ``Task``, ``BulletLine``, ``Table``, ``Section``
+    describe the parsed shape.
 """
 
 from __future__ import annotations
@@ -330,7 +337,7 @@ ITALIC_RE = re.compile(r"(?<![\*_])\*(?!\*)([^*]+?)\*(?!\*)")
 CODE_RE = re.compile(r"`([^`]+)`")
 
 
-def inline(text: str) -> str:
+def _inline(text: str) -> str:
     """Render inline markdown to HTML."""
     # Escape first, then re-substitute for markdown tokens. Tokens are chosen
     # so we can safely find them after escaping.
@@ -370,7 +377,7 @@ SECTION_STYLES = {
 }
 
 
-def section_kind(section: Section) -> str:
+def _section_kind(section: Section) -> str:
     if section.emoji in SECTION_STYLES:
         return SECTION_STYLES[section.emoji][0]
     t = section.title.lower()
@@ -382,13 +389,13 @@ def section_kind(section: Section) -> str:
 def _render_html(title: str, preamble: list[str], sections: list[Section], source_stem: str = "") -> str:
     # Compute summary stats from task counts
     def count(kind: str) -> int:
-        return sum(sum(1 for t in s.tasks if not t.done) for s in sections if section_kind(s) == kind)
+        return sum(sum(1 for t in s.tasks if not t.done) for s in sections if _section_kind(s) == kind)
 
     n_urgent = count("urgent")
     n_todo = count("todo")
     n_watching = count("watching")
     n_personal = count("personal")
-    n_done = sum(sum(1 for t in s.tasks if t.done) for s in sections if section_kind(s) == "done")
+    n_done = sum(sum(1 for t in s.tasks if t.done) for s in sections if _section_kind(s) == "done")
 
     stats = [
         ("urgent", n_urgent, "🔥 Urgent"),
@@ -401,7 +408,7 @@ def _render_html(title: str, preamble: list[str], sections: list[Section], sourc
     body_sections: list[str] = []
 
     for s in sections:
-        kind = section_kind(s)
+        kind = _section_kind(s)
         if kind == "focus":
             body_sections.append(_render_focus(s))
         elif kind in ("urgent", "todo", "watching", "personal"):
@@ -415,7 +422,7 @@ def _render_html(title: str, preamble: list[str], sections: list[Section], sourc
         else:
             body_sections.append(_render_cards(s, "neutral", source_stem))
 
-    preamble_html = "".join(f"<p>{inline(p)}</p>" for p in preamble)
+    preamble_html = "".join(f"<p>{_inline(p)}</p>" for p in preamble)
 
     stat_cards = "".join(
         f'<div class="stat {cls}"><div class="num">{n}</div><div class="label">{label}</div></div>'
@@ -466,7 +473,7 @@ def render(path: Path) -> str:
 
 
 def _render_focus(s: Section) -> str:
-    items = "".join(f"<li>{inline(b.text)}</li>" for b in s.bullets)
+    items = "".join(f"<li>{_inline(b.text)}</li>" for b in s.bullets)
     return f"""
 <section class="focus-box">
   <h2>{html.escape(s.emoji)} {html.escape(s.title)}</h2>
@@ -479,8 +486,8 @@ def _render_cards(s: Section, kind: str, source_stem: str = "") -> str:
     date_slug = source_stem.replace("action-items-", "") if source_stem else ""
     cards: list[str] = []
     for t in s.tasks:
-        subj = inline(t.subject)
-        body = inline(t.body) if t.body else ""
+        subj = _inline(t.subject)
+        body = _inline(t.body) if t.body else ""
         done_cls = " done" if t.done else ""
         stamp = '<span class="stamp">✅ Done</span>' if t.done else ""
         comments_html = _render_comments(t)
@@ -511,7 +518,7 @@ def _render_cards(s: Section, kind: str, source_stem: str = "") -> str:
         )
     # Also render non-task bullets if any
     if s.bullets:
-        bullets_html = "".join(f"<li>{inline(b.text)}</li>" for b in s.bullets)
+        bullets_html = "".join(f"<li>{_inline(b.text)}</li>" for b in s.bullets)
         cards.append(f'<div class="extra-notes"><ul>{bullets_html}</ul></div>')
     grid = "".join(cards) if cards else '<p class="muted">Nothing here.</p>'
     return f"""
@@ -532,7 +539,7 @@ def _render_comments(t: Task) -> str:
         items.append(
             f'<li class="comment comment-{author_cls}">'
             f'<span class="author">{html.escape(c.author)}</span>{ts}'
-            f'<div class="text">{inline(c.text)}</div>'
+            f'<div class="text">{_inline(c.text)}</div>'
             f"</li>"
         )
     return f'<ul class="comments">{"".join(items)}</ul>'
@@ -644,10 +651,10 @@ def _render_meetings(s: Section) -> str:
         subhead = s.subheads[idx - 1] if idx > 0 and idx - 1 < len(s.subheads) else ""
         if subhead:
             parts.append(f"<h3>{html.escape(subhead)}</h3>")
-        head = "".join(f"<th>{inline(h)}</th>" for h in table.headers)
+        head = "".join(f"<th>{_inline(h)}</th>" for h in table.headers)
         rows_html = []
         for row in table.rows:
-            cells = "".join(f"<td>{inline(c)}</td>" for c in row)
+            cells = "".join(f"<td>{_inline(c)}</td>" for c in row)
             rows_html.append(f"<tr>{cells}</tr>")
         parts.append(f'<table class="mtg"><thead><tr>{head}</tr></thead><tbody>{"".join(rows_html)}</tbody></table>')
     return f'<section class="section section-meetings">{"".join(parts)}</section>'
@@ -658,7 +665,7 @@ def _render_completed(s: Section) -> str:
     for t in s.tasks:
         if not t.done:
             continue
-        items.append(f"<li><strong>{inline(t.subject)}</strong>{' — ' + inline(t.body) if t.body else ''}</li>")
+        items.append(f"<li><strong>{_inline(t.subject)}</strong>{' — ' + _inline(t.body) if t.body else ''}</li>")
     return f"""
 <details class="completed" open>
   <summary><h2>{html.escape(s.emoji)} {html.escape(s.title)} <span class="count">({len(items)})</span></h2></summary>
@@ -681,9 +688,9 @@ def _render_digest(s: Section) -> str:
         # Bold-only lines act as subheads within the digest
         if re.match(r"^\*\*[^*]+\*\*:?\s*$", t):
             flush()
-            blocks.append(f"<h3>{inline(t)}</h3>")
+            blocks.append(f"<h3>{_inline(t)}</h3>")
         else:
-            buffer.append(f"<p>{inline(t)}</p>")
+            buffer.append(f"<p>{_inline(t)}</p>")
     flush()
     return f"""
 <details class="digest">
