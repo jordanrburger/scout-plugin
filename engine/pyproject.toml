@@ -56,6 +56,14 @@ python_version = "3.11"
 strict = false
 warn_unused_ignores = true
 
+# Textual is in the [full] extras, not [dev]. CI lint runs in a [dev]-only
+# environment to keep that job lean, so its mypy invocation cannot resolve
+# textual.* — silence those imports rather than installing the heavier
+# extra just for type-checking.
+[[tool.mypy.overrides]]
+module = ["textual", "textual.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]

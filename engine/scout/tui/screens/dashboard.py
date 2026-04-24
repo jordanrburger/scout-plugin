@@ -37,10 +37,13 @@ def _make_tui_note_line(note_text: str) -> str:
 
     Preserves the same format that the old tui/writer.py add_note used:
       - **[TUI note, YYYY-MM-DD HH:MM AM/PM ET]:** <text>
-    The timezone is fixed to UTC-4 (EDT) to match the original behaviour.
+    Uses ZoneInfo("America/New_York") so DST transitions track correctly
+    (the source script's hardcoded UTC-4 silently drifted by one hour
+    November–March).
     """
-    tz = _dt.timezone(_dt.timedelta(hours=-4))
-    now = _dt.datetime.now(tz)
+    from zoneinfo import ZoneInfo
+
+    now = _dt.datetime.now(ZoneInfo("America/New_York"))
     timestamp = now.strftime("%Y-%m-%d %I:%M %p ET")
     return f"  - **[TUI note, {timestamp}]:** {note_text}"
 
