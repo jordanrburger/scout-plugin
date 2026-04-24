@@ -1,0 +1,23 @@
+schema_version: 1
+
+user:
+  email: ""
+  github_username: ""
+  slack_user_id: ""
+  timezone: America/New_York
+  company: ""
+  display_name: ""
+
+budgets:
+  daily_budget_estimate_usd: 150
+  max_per_session_usd: 20
+
+thresholds:
+  rate_limit_warn_pct: 80
+  rate_limit_block_pct: 95
+  connector_staleness_hours: 24
+
+features:
+  tui: true
+  connector_health: true
+  dreaming: true
