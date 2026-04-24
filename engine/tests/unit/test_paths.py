@@ -16,9 +16,7 @@ def test_data_dir_explicit_argument(clean_env: None, tmp_path: Path) -> None:
     assert result == target.resolve()
 
 
-def test_data_dir_reads_env_var(
-    clean_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_data_dir_reads_env_var(clean_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCOUT_DATA_DIR", str(tmp_path))
     assert paths.data_dir() == tmp_path.resolve()
 
@@ -28,9 +26,7 @@ def test_data_dir_falls_back_to_home(clean_env: None) -> None:
     assert result == (Path.home() / "Scout").resolve()
 
 
-def test_data_dir_expands_tilde(
-    clean_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_data_dir_expands_tilde(clean_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SCOUT_DATA_DIR", "~/Scout")
     result = paths.data_dir()
     assert "~" not in str(result)

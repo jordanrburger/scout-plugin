@@ -30,8 +30,7 @@ def test_scoutctl_help_latency() -> None:
     elapsed_ms = (time.perf_counter() - start) * 1000
     assert result.returncode == 0
     assert elapsed_ms < HELP_BUDGET_MS, (
-        f"scoutctl --help took {elapsed_ms:.0f}ms "
-        f"(budget: {HELP_BUDGET_MS}ms). Check for heavy top-level imports."
+        f"scoutctl --help took {elapsed_ms:.0f}ms (budget: {HELP_BUDGET_MS}ms). Check for heavy top-level imports."
     )
 
 
@@ -47,7 +46,4 @@ def test_scoutctl_version_latency() -> None:
     elapsed_ms = (time.perf_counter() - start) * 1000
     assert result.returncode == 0
     assert result.stdout.strip(), "version should emit to stdout"
-    assert elapsed_ms < VERSION_BUDGET_MS, (
-        f"scoutctl version took {elapsed_ms:.0f}ms "
-        f"(budget: {VERSION_BUDGET_MS}ms)."
-    )
+    assert elapsed_ms < VERSION_BUDGET_MS, f"scoutctl version took {elapsed_ms:.0f}ms (budget: {VERSION_BUDGET_MS}ms)."

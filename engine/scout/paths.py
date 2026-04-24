@@ -66,10 +66,7 @@ def require_data_dir(data: Path | None = None) -> Path:
     """Return the data dir, raising DataDirError if it does not exist."""
     d = data or data_dir()
     if not d.exists():
-        raise DataDirError(
-            f"Scout data dir does not exist: {d}\n"
-            f"Run: scoutctl setup data-dir"
-        )
+        raise DataDirError(f"Scout data dir does not exist: {d}\nRun: scoutctl setup data-dir")
     if not d.is_dir():
         raise DataDirError(f"Scout data dir is not a directory: {d}")
     return d

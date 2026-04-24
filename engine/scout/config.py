@@ -17,9 +17,7 @@ import yaml
 from scout import paths
 from scout.errors import ConfigError
 
-PACKAGE_DEFAULTS_PATH = (
-    Path(__file__).parent.parent / "defaults" / "scout-config.yaml"
-)
+PACKAGE_DEFAULTS_PATH = Path(__file__).parent.parent / "defaults" / "scout-config.yaml"
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -39,11 +37,7 @@ def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any
     """Recursive dict merge. `override` wins on conflicts."""
     result = dict(base)
     for key, value in override.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_merge(result[key], value)
         else:
             result[key] = value
