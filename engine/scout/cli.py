@@ -56,6 +56,15 @@ def manifest_show() -> None:
     print(build_manifest().to_json())
 
 
+def _register_action_items() -> None:
+    from scout.action_items.cli import app as action_items_app
+
+    app.add_typer(action_items_app, name="action-items")
+
+
+_register_action_items()
+
+
 def main() -> None:
     try:
         app()

@@ -47,6 +47,9 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 # render.py contains embedded CSS/HTML template strings with unavoidable long lines
 "scout/action_items/render.py" = ["E501"]
+# CLI files use typer.Argument/typer.Option in function defaults — standard Typer idiom, B008 is a false positive here
+"scout/action_items/cli.py" = ["B008"]
+"scout/cli.py" = ["B008"]
 
 [tool.mypy]
 python_version = "3.11"
