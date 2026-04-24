@@ -65,6 +65,19 @@ def _register_action_items() -> None:
 _register_action_items()
 
 
+@app.command()
+def tui() -> None:
+    """Launch the Textual action-items TUI."""
+    try:
+        # Lazy: textual is heavy; import only when the user invokes tui.
+        from scout.tui.app import ScoutApp  # noqa: PLC0415
+    except ImportError as e:
+        from scout.errors import ActionItemError
+
+        raise ActionItemError('Textual is not installed. Install with: uv pip install -e ".[full]"') from e
+    ScoutApp().run()
+
+
 def main() -> None:
     try:
         app()
