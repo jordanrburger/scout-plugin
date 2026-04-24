@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import html
 import re
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -31,7 +30,7 @@ class Comment:
 
     Serialized in the markdown as an indented quote line:
         - [ ] Task — body
-          > jordan (2026-04-18 10:20 AM ET): text here
+          > scout (2026-04-18 10:20 AM ET): text here
           > scout (2026-04-18 11:00 AM ET): reply here
 
     The indentation under the task bullet is what binds the comment to that task.
@@ -82,7 +81,7 @@ TASK_RE = re.compile(r"^\s*- \[(?P<mark>[ xX])\]\s+(?P<rest>.+?)\s*$")
 BULLET_RE = re.compile(r"^\s*-\s+(?P<rest>.+?)\s*$")
 TABLE_ROW_RE = re.compile(r"^\s*\|(.+)\|\s*$")
 # Indented quote-line comment bound to the preceding task:
-#   "  > jordan (2026-04-18 10:20 AM ET): text"
+#   "  > scout (2026-04-18 10:20 AM ET): text"
 # Author/timestamp are captured; loose format tolerated (timestamp optional).
 COMMENT_RE = re.compile(
     r"^(?P<indent>\s+)>\s+(?P<author>[A-Za-z][A-Za-z0-9._-]*)"
@@ -1054,34 +1053,3 @@ document.addEventListener('click', function(e) {
   }
 });
 """
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-
-
-def main() -> int:
-    if len(sys.argv) < 2:
-        print("Usage: python render.py <action-items.md> [output.html]", file=sys.stderr)
-        return 2
-
-    md_path = Path(sys.argv[1]).expanduser().resolve()
-    out_path = Path(sys.argv[2]).expanduser().resolve() if len(sys.argv) > 2 else md_path.with_suffix(".html")
-
-    try:
-        html_text = render(md_path)
-    except ActionItemError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
-
-    out_path.write_text(html_text)
-    _, _, sections = parse(md_path)
-    print(
-        f"Wrote {out_path} ({len(html_text):,} bytes, {sum(len(s.tasks) for s in sections)} tasks across {len(sections)} sections)"
-    )
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
