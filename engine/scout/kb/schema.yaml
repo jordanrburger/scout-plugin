@@ -1,0 +1,215 @@
+# SCOUT Knowledge Graph — Ontology Schema
+# Defines valid entity types, properties, and relationship types.
+# The parser validates all entity files against this schema.
+
+entity_types:
+  person:
+    properties:
+      required: [name, type]
+      optional: [email, slack_id, github, birthday, role, team, employer, phone]
+    relationships:
+      - works_with
+      - manages
+      - managed_by
+      - reports_to
+      - partner_of
+      - family_of
+      - owner_of
+      - works_on
+      - employed_by
+      - interviewed_by
+      - candidate_for
+  pet:
+    properties:
+      required: [name, type, species]
+      optional: [breed, birthday]
+    relationships:
+      - owned_by
+      - has_vet
+  project:
+    properties:
+      required: [name, type, status, priority]
+      optional: [linear_id, repo, team]
+    relationships:
+      - worked_on_by
+      - depends_on
+      - dependency_of
+      - blocks
+      - blocked_by
+  task:
+    properties:
+      required: [name, type, status]
+      optional: [deadline, priority, domain, completion_signal, created_date, completed_date]
+    relationships:
+      - assigned_to
+      - about
+      - blocked_by
+  organization:
+    properties:
+      required: [name, type]
+      optional: [domain, industry, address, phone, website, hours, category, founded, headquarters, employees, funding]
+    relationships:
+      - employs
+      - employed_by
+      - owns
+      - serves
+      - served_by
+      - uses_technology
+      - competes_with
+      - partners_with
+  technology:
+    properties:
+      required: [name, type]
+      optional: [domain, category, license, language, latest_version]
+    relationships:
+      - used_by
+      - forked_from
+      - depends_on
+      - dependency_of
+  invoice-review:
+    properties:
+      required: [name, type]
+      optional: [person, billing_period, hours_billed, amount_billed_czk, hourly_rate_czk, created, sources, status]
+    relationships:
+      - about
+      - details
+  invoice-line-item-review:
+    properties:
+      required: [name, type]
+      optional: [person, parent_review, billing_period, scope, created, sources]
+    relationships:
+      - details
+      - about
+  event:
+    properties:
+      required: [name, type]
+      optional: [domain, date, location, status, created_date, completed_date, attendees]
+    relationships:
+      - attended_by
+      - hosted_by
+      - constrains
+      - mentioned_in
+      - about
+  design:
+    properties:
+      required: [name, type]
+      optional: [domain, project, status, created_date, author, sources]
+    relationships:
+      - about
+      - feeds
+      - lives_in
+      - authored_by
+      - reviewed_by
+
+relationship_types:
+  works_with:
+    inverse: works_with
+    symmetric: true
+  manages:
+    inverse: managed_by
+  managed_by:
+    inverse: manages
+  reports_to:
+    inverse: manages
+  partner_of:
+    inverse: partner_of
+    symmetric: true
+  family_of:
+    inverse: family_of
+    symmetric: true
+  owner_of:
+    inverse: owned_by
+  owned_by:
+    inverse: owner_of
+  works_on:
+    inverse: worked_on_by
+  worked_on_by:
+    inverse: works_on
+  depends_on:
+    inverse: dependency_of
+  dependency_of:
+    inverse: depends_on
+  blocks:
+    inverse: blocked_by
+  blocked_by:
+    inverse: blocks
+  assigned_to:
+    inverse: assignee_of
+  assignee_of:
+    inverse: assigned_to
+  about:
+    inverse: referenced_by
+  referenced_by:
+    inverse: about
+  employs:
+    inverse: employed_by
+  employed_by:
+    inverse: employs
+  owns:
+    inverse: owned_by
+  serves:
+    inverse: served_by
+  served_by:
+    inverse: serves
+  has_vet:
+    inverse: vet_of
+  vet_of:
+    inverse: has_vet
+  uses_technology:
+    inverse: used_by
+  used_by:
+    inverse: uses_technology
+  forked_from:
+    inverse: forked_to
+  forked_to:
+    inverse: forked_from
+  competes_with:
+    inverse: competes_with
+    symmetric: true
+  partners_with:
+    inverse: partners_with
+    symmetric: true
+  details:
+    inverse: detailed_by
+  detailed_by:
+    inverse: details
+  interviewed_by:
+    inverse: interviewed
+  interviewed:
+    inverse: interviewed_by
+  candidate_for:
+    inverse: considering_candidate
+  considering_candidate:
+    inverse: candidate_for
+  attended_by:
+    inverse: attends
+  attends:
+    inverse: attended_by
+  hosted_by:
+    inverse: hosts
+  hosts:
+    inverse: hosted_by
+  constrains:
+    inverse: constrained_by
+  constrained_by:
+    inverse: constrains
+  mentioned_in:
+    inverse: mentions
+  mentions:
+    inverse: mentioned_in
+  feeds:
+    inverse: fed_by
+  fed_by:
+    inverse: feeds
+  lives_in:
+    inverse: houses
+  houses:
+    inverse: lives_in
+  authored_by:
+    inverse: authored
+  authored:
+    inverse: authored_by
+  reviewed_by:
+    inverse: reviewed
+  reviewed:
+    inverse: reviewed_by
