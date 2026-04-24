@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# scoutctl launcher — resolves the venv Python deterministically so
+# hooks invoked from LaunchAgents (which don't inherit user PATH)
+# still find the right interpreter.
+set -e
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ENGINE_DIR="${DIR%/bin}"
+VENV_PY="${ENGINE_DIR}/.venv/bin/python"
+
+if [ -x "$VENV_PY" ]; then
+    exec "$VENV_PY" -m scout.cli "$@"
+else
+    exec python3 -m scout.cli "$@"
+fi
