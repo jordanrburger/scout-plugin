@@ -4,8 +4,8 @@ Comments are written as indented blockquote lines directly under the matched
 task bullet:
 
     - [ ] Task subject — body
-      > jordan (2026-04-18 10:20 AM ET): text here
-      > scout  (2026-04-18 11:00 AM ET): reply
+      > scout (2026-04-18 10:20 AM ET): text here
+      > scout (2026-04-18 11:00 AM ET): reply
 
 This mirrors the schema parsed by the action-items parser.
 """
@@ -165,7 +165,7 @@ def add_comment(
     *,
     subject: str,
     text: str,
-    author: str = "jordan",
+    author: str = "scout",
     timestamp: bool = True,
 ) -> Path:
     """Insert a comment beneath the unique matching task.
@@ -174,7 +174,10 @@ def add_comment(
         path: Daily markdown file. None resolves to today's file in SCOUT_DATA_DIR.
         subject: Case-insensitive substring of the task title.
         text: Comment body.
-        author: Author name for the comment (default: "jordan").
+        author: Author name for the comment (default: "scout"). The CLI
+            wrapper or caller should pass the resolved user display name
+            from `.scout-config.yaml` (`user.display_name`); the generic
+            default here keeps the engine free of personal identity.
         timestamp: If True, prepend a timestamp decoration (default: True).
 
     Returns: the file modified.
