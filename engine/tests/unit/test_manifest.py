@@ -5,6 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+from typer.models import CommandInfo
+
 from scout import __version__
 from scout.manifest import build_manifest, write_manifest
 
@@ -50,3 +53,36 @@ def test_write_manifest_round_trip(tmp_path: Path) -> None:
     assert written == target
     decoded = json.loads(target.read_text())
     assert decoded["version"] == __version__
+
+
+def test_build_manifest_enumerates_subcommands_from_typer_app(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The manifest's subcommand list must reflect the live Typer
+    app, so adding a command in scout.cli does not require a parallel
+    edit in scout.manifest.
+
+    This is what prevents subcommand drift as Plans 2-4 add new
+    commands (action-items, kb, hook, ...).
+    """
+    import scout.cli
+
+    def _stub() -> None: ...
+
+    extra = CommandInfo(name="test-extra-zzz", callback=_stub)
+    monkeypatch.setattr(
+        scout.cli.app,
+        "registered_commands",
+        [*scout.cli.app.registered_commands, extra],
+    )
+
+    m = build_manifest()
+    assert "test-extra-zzz" in m.subcommands
+    # Existing baseline commands must remain.
+    assert "version" in m.subcommands
+    assert "manifest" in m.subcommands
+
+
+def test_build_manifest_subcommands_sorted_for_stability() -> None:
+    m = build_manifest()
+    assert m.subcommands == sorted(m.subcommands)

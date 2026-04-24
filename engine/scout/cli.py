@@ -15,6 +15,11 @@ import typer
 from scout import __version__
 from scout.errors import ScoutError
 
+# Reserved for non-ScoutError exceptions escaping app(). Kept distinct
+# from ScoutError.exit_code == 1 so scout-app can decode "the CLI
+# crashed in an unexpected way" as its own failure mode.
+INTERNAL_ERROR_EXIT_CODE = 70
+
 app = typer.Typer(
     name="scoutctl",
     help="Scout engine control CLI.",
@@ -57,6 +62,14 @@ def main() -> None:
     except ScoutError as e:
         print(str(e), file=sys.stderr)
         sys.exit(e.exit_code)
+    except Exception as e:
+        # KeyboardInterrupt and SystemExit are BaseException-but-not-Exception
+        # and propagate naturally, preserving Ctrl-C and Typer's own exit codes.
+        print(
+            f"scoutctl: internal error: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+        sys.exit(INTERNAL_ERROR_EXIT_CODE)
 
 
 if __name__ == "__main__":
