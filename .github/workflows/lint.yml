@@ -1,0 +1,32 @@
+name: lint
+
+on:
+  pull_request:
+  push:
+    branches: [main, "migrate/**"]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+      - name: Setup Python
+        run: uv python install 3.12
+      - name: Create venv
+        run: uv venv --python 3.12
+      - name: Install
+        run: uv pip install -e ".[dev]"
+      - name: Ruff check
+        run: .venv/bin/ruff check scout tests
+      - name: Ruff format check
+        run: .venv/bin/ruff format --check scout tests
+      - name: Mypy
+        run: .venv/bin/mypy scout
+      - name: Shellcheck scoutctl
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck bin/scoutctl

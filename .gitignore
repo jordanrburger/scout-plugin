@@ -1,2 +1,17 @@
 .DS_Store
 *.log
+
+# Python bytecode and tool caches
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+
+# scoutctl manifest build output (per-machine artifact)
+engine/manifest.json
