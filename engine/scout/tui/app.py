@@ -32,8 +32,3 @@ class ScoutApp(App):
         screen = self.screen
         if isinstance(screen, DashboardScreen):
             screen.refresh_items()
-
-
-def main() -> None:
-    app = ScoutApp()
-    app.run()
