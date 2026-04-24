@@ -102,3 +102,48 @@ def test_main_forwards_scouterror_exit_code_and_message(
     captured = capsys.readouterr()
     assert "missing dir" in captured.err
     assert "Traceback" not in captured.err
+
+
+def test_main_maps_unexpected_exception_to_reserved_exit_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Non-ScoutError escaping app() must map to INTERNAL_ERROR_EXIT_CODE
+    with a formatted stderr message, not a raw traceback and exit 1.
+
+    Scout-app parses exit codes to decode errors; collapsing unexpected
+    exceptions onto ScoutError.exit_code (1) would break that contract.
+    """
+    _install_raising_app(monkeypatch, RuntimeError("kaboom"))
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main()
+
+    assert exc_info.value.code == cli.INTERNAL_ERROR_EXIT_CODE
+    assert cli.INTERNAL_ERROR_EXIT_CODE != 1  # distinguishable from ScoutError base
+    captured = capsys.readouterr()
+    assert "internal error" in captured.err.lower()
+    assert "RuntimeError" in captured.err
+    assert "kaboom" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_main_preserves_keyboardinterrupt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ctrl-C must propagate as KeyboardInterrupt, not be swallowed as
+    an 'internal error'. Otherwise the user can't cancel long runs.
+    """
+    _install_raising_app(monkeypatch, KeyboardInterrupt())
+
+    with pytest.raises(KeyboardInterrupt):
+        cli.main()
+
+
+def test_main_preserves_systemexit(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Typer's standalone_mode raises SystemExit to signal its own exit
+    code. main() must not intercept that and relabel it internal-error.
+    """
+    _install_raising_app(monkeypatch, SystemExit(2))
+
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main()
+
+    assert exc_info.value.code == 2
