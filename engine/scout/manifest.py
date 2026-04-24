@@ -61,11 +61,11 @@ def build_manifest() -> EngineManifest:
         version=__version__,
         schema_version=1,
         features={
-            "session_tokens_v1": False,
-            "connector_health_v1": False,
-            "action_items_cli_v1": False,
-            "kb_ontology_v1": False,
-            "tui_v1": False,
+            "session_tokens_v1": False,  # Plan 3
+            "connector_health_v1": False,  # Plan 3
+            "action_items_cli_v1": True,  # Plan 2
+            "kb_ontology_v1": True,  # Plan 2
+            "tui_v1": True,  # Plan 2
         },
         subcommands=_list_subcommands(),
     )
