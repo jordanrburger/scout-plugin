@@ -21,7 +21,9 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - name: Setup Python
         run: uv python install ${{ matrix.python }}
+      - name: Create venv
+        run: uv venv --python ${{ matrix.python }}
       - name: Install
-        run: uv pip install --system -e ".[dev]"
+        run: uv pip install -e ".[dev]"
       - name: Pytest
-        run: pytest tests/ -v
+        run: .venv/bin/pytest tests/ -v

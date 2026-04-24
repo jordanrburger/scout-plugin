@@ -16,14 +16,16 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - name: Setup Python
         run: uv python install 3.12
+      - name: Create venv
+        run: uv venv --python 3.12
       - name: Install
-        run: uv pip install --system -e ".[dev]"
+        run: uv pip install -e ".[dev]"
       - name: Ruff check
-        run: ruff check scout tests
+        run: .venv/bin/ruff check scout tests
       - name: Ruff format check
-        run: ruff format --check scout tests
+        run: .venv/bin/ruff format --check scout tests
       - name: Mypy
-        run: mypy scout
+        run: .venv/bin/mypy scout
       - name: Shellcheck scoutctl
         run: |
           sudo apt-get update && sudo apt-get install -y shellcheck
