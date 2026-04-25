@@ -32,3 +32,22 @@ def test_knowledge_graph_query_unknown_type_returns_empty() -> None:
     )
     g.load()
     assert g.query(type="nonexistent") == []
+
+
+def test_knowledge_graph_validate_returns_structured_errors() -> None:
+    # Locks in the library-side validate() surface ahead of the Plan 4
+    # `scoutctl kb validate` CLI port. ~/Scout users today reach this via
+    # `python3 knowledge-base/ontology/parser.py validate`; once the engine
+    # is the source of truth, that capability must stay reachable from the
+    # library.
+    g = KnowledgeGraph(
+        schema_path=str(FIXTURE_DIR / "schema.yaml"),
+        kb_root=str(FIXTURE_DIR),
+    )
+    g.load()
+    errors = g.validate()
+    assert isinstance(errors, list)
+    for err in errors:
+        assert set(err.keys()) >= {"entity", "message"}
+        assert isinstance(err["entity"], str)
+        assert isinstance(err["message"], str)
