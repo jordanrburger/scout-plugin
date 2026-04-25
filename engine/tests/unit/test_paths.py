@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import pytest
@@ -61,3 +62,16 @@ def test_derived_paths_under_data_dir(tmp_path: Path) -> None:
     assert paths.config_path(tmp_path) == tmp_path / ".scout-config.yaml"
     assert paths.kb_dir(tmp_path) == tmp_path / "knowledge-base"
     assert paths.action_items_dir(tmp_path) == tmp_path / "action-items"
+
+
+def test_action_items_daily_path_default_today(fake_data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    today = dt.date(2026, 4, 24)
+    monkeypatch.setattr(paths, "_today", lambda: today)
+    p = paths.action_items_daily_path(data=fake_data_dir)
+    assert p.name == "action-items-2026-04-24.md"
+    assert p.parent == fake_data_dir / "action-items"
+
+
+def test_action_items_daily_path_explicit_date(fake_data_dir: Path) -> None:
+    p = paths.action_items_daily_path(data=fake_data_dir, date=dt.date(2026, 4, 15))
+    assert p.name == "action-items-2026-04-15.md"

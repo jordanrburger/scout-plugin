@@ -56,6 +56,28 @@ def manifest_show() -> None:
     print(build_manifest().to_json())
 
 
+def _register_action_items() -> None:
+    from scout.action_items.cli import app as action_items_app
+
+    app.add_typer(action_items_app, name="action-items")
+
+
+_register_action_items()
+
+
+@app.command()
+def tui() -> None:
+    """Launch the Textual action-items TUI."""
+    try:
+        # Lazy: textual is heavy; import only when the user invokes tui.
+        from scout.tui.app import ScoutApp  # noqa: PLC0415
+    except ImportError as e:
+        from scout.errors import ActionItemError
+
+        raise ActionItemError('Textual is not installed. Install with: uv pip install -e ".[full]"') from e
+    ScoutApp().run()
+
+
 def main() -> None:
     try:
         app()

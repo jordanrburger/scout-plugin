@@ -44,10 +44,25 @@ target-version = "py311"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# render.py contains embedded CSS/HTML template strings with unavoidable long lines
+"scout/action_items/render.py" = ["E501"]
+# CLI files use typer.Argument/typer.Option in function defaults — standard Typer idiom, B008 is a false positive here
+"scout/action_items/cli.py" = ["B008"]
+"scout/cli.py" = ["B008"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = false
 warn_unused_ignores = true
+
+# Textual is in the [full] extras, not [dev]. CI lint runs in a [dev]-only
+# environment to keep that job lean, so its mypy invocation cannot resolve
+# textual.* — silence those imports rather than installing the heavier
+# extra just for type-checking.
+[[tool.mypy.overrides]]
+module = ["textual", "textual.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

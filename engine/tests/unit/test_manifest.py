@@ -86,3 +86,14 @@ def test_build_manifest_enumerates_subcommands_from_typer_app(
 def test_build_manifest_subcommands_sorted_for_stability() -> None:
     m = build_manifest()
     assert m.subcommands == sorted(m.subcommands)
+
+
+def test_action_items_kb_tui_features_enabled() -> None:
+    """Plan 2 lights these three. Other Plan 1 placeholders remain False."""
+    m = build_manifest()
+    assert m.features["action_items_cli_v1"] is True
+    assert m.features["kb_ontology_v1"] is True
+    assert m.features["tui_v1"] is True
+    # Plan 3 lights these — still False after Plan 2.
+    assert m.features["session_tokens_v1"] is False
+    assert m.features["connector_health_v1"] is False

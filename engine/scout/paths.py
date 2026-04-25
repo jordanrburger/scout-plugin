@@ -5,6 +5,7 @@ All paths are expanded (~) and resolved (symlinks, relative segments).
 
 from __future__ import annotations
 
+import datetime as _dt
 import os
 from pathlib import Path
 
@@ -70,3 +71,18 @@ def require_data_dir(data: Path | None = None) -> Path:
     if not d.is_dir():
         raise DataDirError(f"Scout data dir is not a directory: {d}")
     return d
+
+
+def _today() -> _dt.date:
+    """Indirection so tests can monkeypatch the date without freezing time."""
+    return _dt.date.today()
+
+
+def action_items_daily_path(data: Path | None = None, date: _dt.date | None = None) -> Path:
+    """Return the daily action-items markdown path for `date` (default today).
+
+    Filename format matches the existing ~/Scout convention:
+    `action-items-YYYY-MM-DD.md` under the data dir's `action-items/`.
+    """
+    d = date or _today()
+    return action_items_dir(data) / f"action-items-{d.isoformat()}.md"
