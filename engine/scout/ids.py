@@ -41,7 +41,7 @@ def new_short_prefix(
     require widening to 5 chars (out of scope for v0.4).
     """
     exclude = exclude or set()
-    for _ in range(max_attempts + 1):
+    for _ in range(max_attempts):
         candidate = "".join(secrets.choice(CROCKFORD_ALPHABET) for _ in range(SHORT_PREFIX_LEN))
         if candidate not in exclude:
             return candidate

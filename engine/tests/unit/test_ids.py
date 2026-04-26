@@ -68,11 +68,43 @@ def test_new_short_prefix_excludes_set_member() -> None:
     assert p not in in_use
 
 
+def test_new_short_prefix_with_explicit_none_exclude() -> None:
+    """exclude=None is the documented default; verify it's accepted explicitly."""
+    p = new_short_prefix(exclude=None)
+    assert len(p) == SHORT_PREFIX_LEN
+    assert all(c in CROCKFORD_ALPHABET for c in p)
+
+
+def test_new_short_prefix_max_attempts_zero_raises_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """max_attempts=0 means no tries — raise without invoking the RNG."""
+    call_count = {"n": 0}
+
+    def _spy(_alphabet: str) -> str:
+        call_count["n"] += 1
+        return "A"
+
+    monkeypatch.setattr("scout.ids.secrets.choice", _spy)
+    with pytest.raises(RuntimeError, match="prefix space exhausted"):
+        new_short_prefix(exclude={"AAAA"}, max_attempts=0)
+    assert call_count["n"] == 0
+
+
+def test_new_short_prefix_max_attempts_one_succeeds_when_no_collision(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single try is enough when the candidate is fresh."""
+    monkeypatch.setattr("scout.ids.secrets.choice", lambda _: "B")
+    p = new_short_prefix(exclude=set(), max_attempts=1)
+    assert p == "BBBB"
+
+
 def test_new_short_prefix_raises_when_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:
     """When all retries hit `exclude`, the generator raises instead of looping forever."""
-    import secrets
-
     # Force every generated prefix to be "AAAA" so it deterministically hits the exclude set.
-    monkeypatch.setattr(secrets, "choice", lambda _: "A")
+    # Patch the symbol where it's used (scout.ids.secrets.choice), not the global secrets module —
+    # this remains correct even if ids.py ever switches to `from secrets import choice`.
+    monkeypatch.setattr("scout.ids.secrets.choice", lambda _: "A")
     with pytest.raises(RuntimeError, match="prefix space exhausted"):
         new_short_prefix(exclude={"AAAA"}, max_attempts=3)
