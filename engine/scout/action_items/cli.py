@@ -53,17 +53,38 @@ def cli_mark_done(
 
 @app.command("snooze")
 def cli_snooze(
-    subject: str = typer.Option(..., "--subject"),
     until: str = typer.Option(..., "--until", help="YYYY-MM-DD"),
-    path: Path | None = typer.Argument(None),
+    subject: str | None = typer.Option(None, "--subject", help="Substring of task title (legacy fallback)."),
+    by_id: str | None = typer.Option(None, "--by-id", help="4-char Crockford prefix from `[#XXXX]`."),
+    path: Path | None = typer.Argument(
+        None,
+        help="Daily markdown file (default: today). When given, its grandparent is the data dir.",
+    ),
 ) -> None:
     from scout.action_items.snooze import snooze
+
+    if (subject is None) == (by_id is None):
+        raise ActionItemError("snooze requires exactly one of --subject or --by-id")
 
     try:
         target_date = _dt.date.fromisoformat(until)
     except ValueError as e:
         raise ActionItemError(f"--until: invalid date {until!r}") from e
-    snooze(path, subject=subject, until=target_date)
+
+    # Backward compat: if a path argument is given, its grandparent serves as
+    # the data dir (path lives at <data_dir>/action-items/<file>.md). The
+    # filename's date is used to pin which daily file to operate on.
+    data_dir: Path | None = None
+    date: _dt.date | None = None
+    if path is not None:
+        data_dir = path.parent.parent
+        stem = path.stem  # e.g. action-items-2026-04-15
+        try:
+            date = _dt.date.fromisoformat(stem.removeprefix("action-items-"))
+        except ValueError as e:
+            raise ActionItemError(f"unrecognized daily filename: {path.name}") from e
+
+    snooze(by_id=by_id, by_subject=subject, until=target_date, date=date, data_dir=data_dir)
 
 
 @app.command("add-comment")
