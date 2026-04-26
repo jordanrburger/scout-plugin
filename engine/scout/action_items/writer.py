@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 from scout.errors import ActionItemError
+from scout.ids import short_prefix_pattern
 
 
 def atomic_write_lines(target: Path, lines: list[str]) -> None:
@@ -69,8 +70,6 @@ def add_prefix_to_line(target: Path, *, line_number: int, prefix: str) -> None:
     Refuses if the line already carries a `[#XXXX]` prefix — the caller
     should not be asking to add one if scout.id_map already has a record.
     """
-    from scout.ids import short_prefix_pattern  # local import — keeps writer light
-
     lines = _read_lines(target)
     idx = line_number - 1
     if not 0 <= idx < len(lines):
