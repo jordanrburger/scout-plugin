@@ -89,13 +89,33 @@ def cli_snooze(
 
 @app.command("add-comment")
 def cli_add_comment(
-    subject: str = typer.Option(..., "--subject"),
-    text: str = typer.Option(..., "--text"),
-    path: Path | None = typer.Argument(None),
+    comment: str = typer.Option(..., "--comment", help="Comment text to append beneath the task."),
+    subject: str | None = typer.Option(None, "--subject", help="Substring of task title (legacy fallback)."),
+    by_id: str | None = typer.Option(None, "--by-id", help="4-char Crockford prefix from `[#XXXX]`."),
+    path: Path | None = typer.Argument(
+        None,
+        help="Daily markdown file (default: today). When given, its grandparent is the data dir.",
+    ),
 ) -> None:
     from scout.action_items.add_comment import add_comment
 
-    add_comment(path, subject=subject, text=text)
+    if (subject is None) == (by_id is None):
+        raise ActionItemError("add-comment requires exactly one of --subject or --by-id")
+
+    # Backward compat: if a path argument is given, its grandparent serves as
+    # the data dir (path lives at <data_dir>/action-items/<file>.md). The
+    # filename's date is used to pin which daily file to operate on.
+    data_dir: Path | None = None
+    date: _dt.date | None = None
+    if path is not None:
+        data_dir = path.parent.parent
+        stem = path.stem  # e.g. action-items-2026-04-15
+        try:
+            date = _dt.date.fromisoformat(stem.removeprefix("action-items-"))
+        except ValueError as e:
+            raise ActionItemError(f"unrecognized daily filename: {path.name}") from e
+
+    add_comment(by_id=by_id, by_subject=subject, comment=comment, date=date, data_dir=data_dir)
 
 
 @app.command("render")
