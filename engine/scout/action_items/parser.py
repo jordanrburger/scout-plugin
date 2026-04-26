@@ -15,6 +15,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from scout.ids import short_prefix_pattern
+
 
 @dataclass
 class ActionItem:
@@ -29,6 +31,7 @@ class ActionItem:
     details: list[str] = field(default_factory=list)
     raw_line: str = ""
     line_number: int = 0
+    short_prefix: str | None = None
 
 
 PRIORITY_MAP = {
@@ -177,6 +180,16 @@ def _parse_item_line(
     title = title.lstrip("- ")
     # Remove status emojis at start
     title = STATUS_EMOJI.sub("", title).strip()
+    # Extract `[#XXXX]` short prefix (if present) and strip from title.
+    # raw_line is preserved untouched so substring matching still works.
+    _short_prefix: str | None = None
+    _prefix_match = short_prefix_pattern().search(title)
+    if _prefix_match is not None:
+        _short_prefix = _prefix_match.group(1)
+        # Remove the bracketed prefix from the title.
+        title = title[: _prefix_match.start()] + title[_prefix_match.end() :]
+        # Collapse any double-space left behind, then strip outer whitespace.
+        title = title.replace("  ", " ").strip()
     # Remove strikethrough markers but keep text for context
     title = STRIKETHROUGH.sub(r"\1", title)
     # Remove bold markers
@@ -201,6 +214,7 @@ def _parse_item_line(
         context_links=context_links,
         raw_line=line,
         line_number=line_number,
+        short_prefix=_short_prefix,
     )
 
 

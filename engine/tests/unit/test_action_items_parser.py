@@ -64,3 +64,35 @@ def test_raw_line_preserved_for_substring_lookup(items: list[ActionItem]) -> Non
     assert "[ ]" in raw
     assert "🔴" in raw
     assert "Reply to Q2 budget thread" in raw
+
+
+PREFIX_FIXTURE = Path(__file__).parent.parent / "fixtures" / "action-items-with-prefixes.md"
+
+
+def test_parser_extracts_short_prefix_when_present() -> None:
+    items = parse_file(PREFIX_FIXTURE)
+    by_title = {i.title: i for i in items}
+    assert by_title["Submit Lever feedback to recruiting"].short_prefix == "A3F7"
+    assert by_title["Read incident postmortem"].short_prefix == "B5K2"
+    assert by_title["Reply to Q2 budget thread"].short_prefix == "C9N4"
+
+
+def test_parser_short_prefix_is_none_for_unprefixed_line() -> None:
+    items = parse_file(PREFIX_FIXTURE)
+    by_title = {i.title: i for i in items}
+    assert by_title["Send Scout plugin announcement"].short_prefix is None
+    assert by_title["Followup with vendor on contract redlines"].short_prefix is None
+
+
+def test_parser_strips_prefix_from_title() -> None:
+    """Title field should not include `[#XXXX]` — that's what short_prefix is for."""
+    items = parse_file(PREFIX_FIXTURE)
+    titles = [i.title for i in items]
+    assert all("[#" not in t for t in titles)
+
+
+def test_parser_raw_line_preserves_prefix() -> None:
+    """raw_line is the unmodified source line; substring fallback uses it."""
+    items = parse_file(PREFIX_FIXTURE)
+    by_title = {i.title: i for i in items}
+    assert "[#A3F7]" in by_title["Submit Lever feedback to recruiting"].raw_line
