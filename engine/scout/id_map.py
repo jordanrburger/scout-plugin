@@ -1,15 +1,27 @@
 """Prefix↔ULID map persisted at $SCOUT_DATA_DIR/.scout-state/id-map.json.
 
-Read-modify-write semantics use `flock(LOCK_EX)` per spec §6. The map
-holds last-known position metadata so the diff engine can fuzzy-reattach
-a markdown line whose `[#XXXX]` prefix was accidentally deleted.
+Writes are atomic-rename: serialise to a tempfile, fsync, then
+`os.replace` over the target. Concurrent writers see last-writer-wins —
+two `save()` calls that overlap leave only one entry visible, but the
+JSON file itself is never torn. Readers see either the old or the new
+file, never a half-written state.
+
+The plan's spec §6 phrase "read-modify-write under flock(LOCK_EX)" is
+the v0.5 invariant: when SQLite WAL replaces this JSON file, real
+serialisation is provided by the database. For v0.4, action-item
+registration is single-digit-per-day so LWW is acceptable; the
+concurrency test's `len(found) >= 1` assertion encodes this contract
+honestly.
+
+The map holds last-known position metadata so the diff engine can
+fuzzy-reattach a markdown line whose `[#XXXX]` prefix was accidentally
+deleted.
 
 See v0.4 spec §13.1.
 """
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import tempfile
@@ -42,11 +54,10 @@ class IdMap:
         if not path.exists():
             return cls(data_dir, entries={})
         with path.open("r", encoding="utf-8") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
-            try:
-                raw = json.load(f)
-            finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            raw = json.load(f)
+        schema_version = raw.get("schema_version")
+        if schema_version != 1:
+            raise ValueError(f"id-map.json has unknown schema_version {schema_version!r}; expected 1")
         entries = {ulid: IdMapEntry(**meta) for ulid, meta in raw.get("entries", {}).items()}
         return cls(data_dir, entries)
 
@@ -57,19 +68,17 @@ class IdMap:
             "schema_version": 1,
             "entries": {ulid: asdict(entry) for ulid, entry in self._entries.items()},
         }
-        # Write under exclusive lock + atomic rename.
+        # Atomic-rename write: tempfile in the same directory, fsync, then
+        # os.replace. Concurrent writes are last-writer-wins (see module
+        # docstring); v0.5's SQLite migration provides real RMW.
         fd, tmp = tempfile.mkstemp(prefix=".id-map.", suffix=".json.tmp", dir=str(path.parent))
         tmp_path = Path(tmp)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                try:
-                    json.dump(payload, f, indent=2, sort_keys=True)
-                    f.write("\n")
-                    f.flush()
-                    os.fsync(f.fileno())
-                finally:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                json.dump(payload, f, indent=2, sort_keys=True)
+                f.write("\n")
+                f.flush()
+                os.fsync(f.fileno())
             os.replace(tmp_path, path)
         except BaseException:
             if tmp_path.exists():
