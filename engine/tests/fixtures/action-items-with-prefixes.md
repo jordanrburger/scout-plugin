@@ -11,6 +11,7 @@
 
 - [ ] [#C9N4] 🔴 Reply to Q2 budget thread
 - [ ] Followup with vendor on contract redlines
+- [ ] [#E1Q2] Plain prefixed task without priority
 
 ## Completed Today
 

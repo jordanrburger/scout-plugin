@@ -96,3 +96,30 @@ def test_parser_raw_line_preserves_prefix() -> None:
     items = parse_file(PREFIX_FIXTURE)
     by_title = {i.title: i for i in items}
     assert "[#A3F7]" in by_title["Submit Lever feedback to recruiting"].raw_line
+
+
+def test_parser_handles_prefix_and_priority_emoji_together() -> None:
+    """A prefixed line with a priority emoji must produce all three fields correctly:
+    short_prefix from [#XXXX], priority from the emoji, title with neither.
+    Pins the interaction Tasks 18-20 will rely on.
+    """
+    items = parse_file(PREFIX_FIXTURE)
+    by_title = {i.title: i for i in items}
+    item = by_title["Submit Lever feedback to recruiting"]
+    assert item.short_prefix == "A3F7"
+    assert item.priority == "🔴"
+    assert item.title == "Submit Lever feedback to recruiting"
+    assert "[#A3F7]" not in item.title
+    assert "🔴" not in item.title
+
+
+def test_parser_handles_prefix_without_priority_emoji() -> None:
+    """A prefixed line with no priority emoji must produce short_prefix populated,
+    priority empty, title clean of any prefix marker.
+    """
+    items = parse_file(PREFIX_FIXTURE)
+    by_title = {i.title: i for i in items}
+    item = by_title["Plain prefixed task without priority"]
+    assert item.short_prefix == "E1Q2"
+    assert item.priority == ""
+    assert item.title == "Plain prefixed task without priority"
