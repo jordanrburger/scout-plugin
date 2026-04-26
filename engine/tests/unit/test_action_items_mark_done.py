@@ -3,55 +3,155 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from pathlib import Path
 
 import pytest
 
 from scout.action_items.mark_done import mark_done
 from scout.errors import ActionItemError
+from scout.events import Event
+from scout.id_map import IdMap, IdMapEntry
+
+# -----------------------------------------------------------------------
+# Plan 2 legacy contract — adapted to the new by_subject= kwarg.
+# `mark_done(path, subject=..., undo=...)` no longer exists. The new API
+# resolves the daily file via `data_dir` + `_today()`, so each test seeds
+# a daily file at the expected path and pins `_today()` via monkeypatch.
+# The Plan 2 `undo` flag is dropped (no caller exercises it post-Task 18).
+# -----------------------------------------------------------------------
 
 
-def _seed(tmp_path: Path, body: str) -> Path:
-    f = tmp_path / "action-items-2026-04-15.md"
+def _seed_daily(data_dir: Path, body: str, *, date: dt.date) -> Path:
+    items_dir = data_dir / "action-items"
+    items_dir.mkdir(parents=True, exist_ok=True)
+    f = items_dir / f"action-items-{date.isoformat()}.md"
     f.write_text(body)
     return f
 
 
-def test_marks_open_task_done_by_subject(tmp_path: Path) -> None:
-    f = _seed(tmp_path, "- [ ] Submit Lever feedback\n- [ ] Other task\n")
-    mark_done(f, subject="Lever feedback")
+def test_marks_open_task_done_by_subject(fake_data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    today = dt.date(2026, 4, 15)
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: today)
+    f = _seed_daily(
+        fake_data_dir,
+        "- [ ] Submit Lever feedback\n- [ ] Other task\n",
+        date=today,
+    )
+    mark_done(by_subject="Lever feedback", data_dir=fake_data_dir)
     assert "- [x] Submit Lever feedback" in f.read_text()
     assert "- [ ] Other task" in f.read_text()  # unchanged
 
 
-def test_no_match_raises(tmp_path: Path) -> None:
-    f = _seed(tmp_path, "- [ ] Existing task\n")
-    with pytest.raises(ActionItemError, match="no match"):
-        mark_done(f, subject="missing keyword")
+def test_no_match_raises(fake_data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    today = dt.date(2026, 4, 15)
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: today)
+    _seed_daily(fake_data_dir, "- [ ] Existing task\n", date=today)
+    with pytest.raises(ActionItemError, match="no open task matched"):
+        mark_done(by_subject="missing keyword", data_dir=fake_data_dir)
 
 
-def test_ambiguous_match_raises_listing_candidates(tmp_path: Path) -> None:
-    f = _seed(tmp_path, "- [ ] Lever feedback A\n- [ ] Lever feedback B\n")
+def test_ambiguous_match_raises_listing_candidates(fake_data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    today = dt.date(2026, 4, 15)
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: today)
+    _seed_daily(
+        fake_data_dir,
+        "- [ ] Lever feedback A\n- [ ] Lever feedback B\n",
+        date=today,
+    )
     with pytest.raises(ActionItemError, match="ambiguous|multiple") as exc:
-        mark_done(f, subject="lever feedback")
+        mark_done(by_subject="lever feedback", data_dir=fake_data_dir)
     msg = str(exc.value)
     assert "Lever feedback A" in msg
     assert "Lever feedback B" in msg
 
 
-def test_undo_flips_done_back_to_open(tmp_path: Path) -> None:
-    f = _seed(tmp_path, "- [x] Done thing\n")
-    mark_done(f, subject="Done thing", undo=True)
-    assert "- [ ] Done thing" in f.read_text()
-
-
-def test_resolves_today_when_path_omitted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from scout import paths
-
+def test_resolves_today_when_data_dir_via_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """No `data_dir` argument resolves via SCOUT_DATA_DIR env var."""
     monkeypatch.setenv("SCOUT_DATA_DIR", str(tmp_path))
-    (tmp_path / "action-items").mkdir()
-    monkeypatch.setattr(paths, "_today", lambda: dt.date(2026, 4, 15))
-    f = _seed(tmp_path / "action-items", "- [ ] task X\n")
-    # No `path` argument → resolves via paths.action_items_daily_path()
-    mark_done(None, subject="task X")
+    today = dt.date(2026, 4, 15)
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: today)
+    f = _seed_daily(tmp_path, "- [ ] task X\n", date=today)
+    mark_done(by_subject="task X")
     assert "- [x] task X" in f.read_text()
+
+
+# -----------------------------------------------------------------------
+# Task 18 new contract — by_id + by_subject + Event return.
+# -----------------------------------------------------------------------
+
+
+def test_mark_done_by_id_flips_correct_line(fake_data_dir, monkeypatch):
+    # Set up: register prefix↔ULID in the id-map, write a markdown file with that prefix.
+    m = IdMap.load(fake_data_dir)
+    m.register(
+        IdMapEntry(
+            "01HXAAA0000000000000000000",
+            "A3F7",
+            "Submit Lever feedback",
+            "action-items-2026-04-26.md",
+            5,
+        )
+    )
+    m.save()
+    daily = fake_data_dir / "action-items" / "action-items-2026-04-26.md"
+    daily.parent.mkdir(parents=True, exist_ok=True)
+    daily.write_text(
+        "# Action Items — 2026-04-26\n\n"
+        "## In Progress\n\n"
+        "- [ ] [#A3F7] 🔴 Submit Lever feedback\n"
+        "- [ ] 🟡 Other unrelated task\n"
+    )
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: dt.date(2026, 4, 26))
+
+    from scout.action_items.mark_done import mark_done
+
+    event = mark_done(by_id="A3F7", data_dir=fake_data_dir)
+
+    assert "- [x] [#A3F7]" in daily.read_text()
+    assert "- [ ] 🟡 Other" in daily.read_text()  # unrelated line untouched
+    assert isinstance(event, Event)
+    assert event.kind == "action_item.completed"
+    assert event.source == "cli:mark_done"
+    assert event.payload["item_id"] == "01HXAAA0000000000000000000"
+    assert event.payload["via"] == "id"
+
+
+def test_mark_done_by_subject_fallback_for_unprefixed_line(fake_data_dir, monkeypatch):
+    daily = fake_data_dir / "action-items" / "action-items-2026-04-26.md"
+    daily.parent.mkdir(parents=True, exist_ok=True)
+    daily.write_text("## In Progress\n\n- [ ] 🔴 Followup with vendor on contract\n")
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: dt.date(2026, 4, 26))
+
+    from scout.action_items.mark_done import mark_done
+
+    event = mark_done(by_subject="vendor", data_dir=fake_data_dir)
+    assert "- [x] 🔴 Followup with vendor" in daily.read_text()
+    assert event.payload["via"] == "subject"
+    # No prefix on the line means no entity ULID — payload uses the event's own ULID derivation.
+    assert "item_id" in event.payload  # may be None or empty; assert key present
+
+
+def test_mark_done_by_id_unknown_prefix_raises(fake_data_dir, monkeypatch):
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: dt.date(2026, 4, 26))
+    from scout.action_items.mark_done import mark_done
+    from scout.errors import ActionItemError
+
+    with pytest.raises(ActionItemError, match="prefix.*not found"):
+        mark_done(by_id="ZZZZ", data_dir=fake_data_dir)
+
+
+def test_mark_done_event_id_and_ts_well_formed(fake_data_dir, monkeypatch):
+    m = IdMap.load(fake_data_dir)
+    m.register(IdMapEntry("01HX", "A3F7", "task", "action-items-2026-04-26.md", 1))
+    m.save()
+    daily = fake_data_dir / "action-items" / "action-items-2026-04-26.md"
+    daily.parent.mkdir(parents=True, exist_ok=True)
+    daily.write_text("- [ ] [#A3F7] task\n")
+    monkeypatch.setattr("scout.action_items.mark_done._today", lambda: dt.date(2026, 4, 26))
+
+    from scout.action_items.mark_done import mark_done
+
+    event = mark_done(by_id="A3F7", data_dir=fake_data_dir)
+    assert len(event.id) == 26
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", event.ts)
