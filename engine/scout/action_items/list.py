@@ -38,3 +38,17 @@ def list_items(
     if section is not None:
         items = [i for i in items if i.section == section]
     return items
+
+
+def format_items(items: list[ActionItem]) -> str:
+    """Format a list of ActionItems for plain-text CLI output.
+
+    Each line shows `<priority> [<status>] [#XXXX] <title>` when the item has
+    a short prefix; the bracketed prefix is omitted entirely (no extra space)
+    when no prefix is present. This is the v0.4 surface form for stable IDs.
+    """
+    lines: list[str] = []
+    for i in items:
+        prefix_part = f"[#{i.short_prefix}] " if i.short_prefix else ""
+        lines.append(f"{i.priority} [{i.status}] {prefix_part}{i.title}")
+    return "\n".join(lines) + ("\n" if lines else "")

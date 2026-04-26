@@ -138,7 +138,7 @@ def cli_list(
     json_out: bool = typer.Option(False, "--json"),
 ) -> None:
     from scout import paths
-    from scout.action_items.list import list_items
+    from scout.action_items.list import format_items, list_items
 
     target = path or paths.action_items_daily_path()
     items = list_items(target, include_done=include_done, priority=priority, section=section)
@@ -149,13 +149,13 @@ def cli_list(
                 "priority": i.priority,
                 "status": i.status,
                 "section": i.section,
+                "short_prefix": i.short_prefix,
             }
             for i in items
         ]
         sys.stdout.write(_json.dumps(payload) + "\n")
     else:
-        for i in items:
-            sys.stdout.write(f"{i.priority} [{i.status}] {i.title}\n")
+        sys.stdout.write(format_items(items))
 
 
 @app.command("watch")
