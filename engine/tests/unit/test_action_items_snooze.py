@@ -90,3 +90,12 @@ def test_snooze_event_id_and_ts_well_formed(fake_data_dir: Path, monkeypatch: py
     event = snooze(by_id="A3F7", until=dt.date(2026, 5, 1), data_dir=fake_data_dir)
     assert len(event.id) == 26
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", event.ts)
+
+
+def test_snooze_rejects_non_date_until(fake_data_dir: Path) -> None:
+    """A string accidentally passed for `until` must fail loudly at the boundary,
+    not silently AttributeError mid-mutation."""
+    from scout.action_items.snooze import snooze
+
+    with pytest.raises(ActionItemError, match="until must be a date"):
+        snooze(by_subject="x", until="2026-05-01", data_dir=fake_data_dir)  # type: ignore[arg-type]

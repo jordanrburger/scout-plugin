@@ -122,3 +122,17 @@ def test_resolve_target_ambiguous_subject_raises(fake_data_dir: Path) -> None:
     ]
     with pytest.raises(ActionItemError, match="ambiguous"):
         resolve_target(items=items, data_dir=fake_data_dir, by_id=None, by_subject="reply")
+
+
+def test_resolve_target_prefix_in_idmap_but_missing_from_items_raises(
+    fake_data_dir: Path,
+) -> None:
+    """If the IdMap knows a prefix but the parsed items list doesn't include it
+    (e.g., user passed `--by-id A3F7` while looking at the wrong day's file),
+    raise a clear error rather than silently no-op."""
+    m = IdMap.load(fake_data_dir)
+    m.register(IdMapEntry("01HXAAA", "A3F7", "task X", "today.md", 5))
+    m.save()
+    # Items list is empty — simulates the wrong-file case.
+    with pytest.raises(ActionItemError, match="is in id-map but not present"):
+        resolve_target(items=[], data_dir=fake_data_dir, by_id="A3F7", by_subject=None)

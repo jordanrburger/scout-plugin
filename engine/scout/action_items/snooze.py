@@ -19,6 +19,7 @@ from scout import paths
 from scout.action_items._common import find_line_number, resolve_target
 from scout.action_items.parser import parse_file
 from scout.action_items.writer import insert_below
+from scout.errors import ActionItemError
 from scout.events import Event, now_iso
 from scout.ids import new_ulid
 
@@ -38,11 +39,17 @@ def snooze(
 ) -> Event:
     """Snooze today's (or `date`'s) action item until `until`.
 
+    Past dates for `until` are accepted intentionally — the v0.5 event-store
+    filtering layer is the canonical place for "is this still relevant?" logic.
+    Callers may want to pre-validate `until > today` themselves.
+
     Exactly one of `by_id` or `by_subject` must be provided. `by_id` is
     a 4-char Crockford prefix; `by_subject` is a case-insensitive
     substring match against open-status raw lines (legacy fallback for
     lines that haven't been prefixed yet).
     """
+    if not isinstance(until, dt.date):
+        raise ActionItemError(f"snooze: until must be a date, got {type(until).__name__}")
     target_path = paths.action_items_daily_path(data=data_dir, date=date or _today())
 
     # Parse if file exists; otherwise pass empty items list and let
