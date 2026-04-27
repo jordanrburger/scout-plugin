@@ -628,15 +628,16 @@ def _render_task_actions(t: Task, date_slug: str) -> str:
     needle = _plain_subject(t.subject).strip().replace('"', r"\"")
     if len(needle) > 40:
         needle = needle[:40].rstrip()
-    date_arg = f"{date_slug} " if date_slug else ""
     if t.done:
-        cmd = f'./action-items/mark_done.py {date_arg}--subject "{needle}" --undo'
-        chips = [("Reopen", cmd)]
-    else:
-        mark_cmd = f'./action-items/mark_done.py {date_arg}--subject "{needle}"'
-        snooze_tmpl = f'./action-items/snooze.py {date_arg}--subject "{needle}" --until +1d'
-        launch_cmd = f'cd ~/Scout && claude "Help me make progress on this action item: {needle}"'
-        chips = [("Mark done", mark_cmd), ("Snooze", snooze_tmpl), ("Launch Claude", launch_cmd)]
+        # No actionable affordances for completed tasks; reopen flow is not
+        # part of the v0.4 CLI surface. Editing the source markdown remains
+        # the canonical way to reopen a task.
+        return ""
+    date_arg = f"{date_slug} " if date_slug else ""
+    mark_cmd = f'./action-items/mark_done.py {date_arg}--subject "{needle}"'
+    snooze_tmpl = f'./action-items/snooze.py {date_arg}--subject "{needle}" --until +1d'
+    launch_cmd = f'cd ~/Scout && claude "Help me make progress on this action item: {needle}"'
+    chips = [("Mark done", mark_cmd), ("Snooze", snooze_tmpl), ("Launch Claude", launch_cmd)]
     buttons = "".join(
         f'<button type="button" class="task-action" data-cmd="{html.escape(cmd, quote=True)}" '
         f'title="Click to copy: {html.escape(cmd, quote=True)}">{html.escape(label)}</button>'

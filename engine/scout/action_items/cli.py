@@ -22,39 +22,100 @@ app = typer.Typer(help="Action-items operations.", no_args_is_help=True)
 
 @app.command("mark-done")
 def cli_mark_done(
-    subject: str = typer.Option(..., "--subject", help="Substring of task title."),
-    path: Path | None = typer.Argument(None, help="Daily markdown file (default: today)."),
-    undo: bool = typer.Option(False, "--undo", help="Flip [x] back to [ ]."),
+    subject: str | None = typer.Option(None, "--subject", help="Substring of task title (legacy fallback)."),
+    by_id: str | None = typer.Option(None, "--by-id", help="4-char Crockford prefix from `[#XXXX]`."),
+    path: Path | None = typer.Argument(
+        None,
+        help="Daily markdown file (default: today). When given, its grandparent is the data dir.",
+    ),
 ) -> None:
     from scout.action_items.mark_done import mark_done
 
-    mark_done(path, subject=subject, undo=undo)
+    if (subject is None) == (by_id is None):
+        raise ActionItemError("mark-done requires exactly one of --subject or --by-id")
+
+    # Backward compat: if a path argument is given, its grandparent serves as
+    # the data dir (path lives at <data_dir>/action-items/<file>.md). The
+    # filename's date is used to pin which daily file to operate on.
+    data_dir: Path | None = None
+    date: _dt.date | None = None
+    if path is not None:
+        data_dir = path.parent.parent
+        # Filename: action-items-YYYY-MM-DD.md
+        stem = path.stem  # e.g. action-items-2026-04-15
+        try:
+            date = _dt.date.fromisoformat(stem.removeprefix("action-items-"))
+        except ValueError as e:
+            raise ActionItemError(f"unrecognized daily filename: {path.name}") from e
+
+    mark_done(by_id=by_id, by_subject=subject, date=date, data_dir=data_dir)
 
 
 @app.command("snooze")
 def cli_snooze(
-    subject: str = typer.Option(..., "--subject"),
     until: str = typer.Option(..., "--until", help="YYYY-MM-DD"),
-    path: Path | None = typer.Argument(None),
+    subject: str | None = typer.Option(None, "--subject", help="Substring of task title (legacy fallback)."),
+    by_id: str | None = typer.Option(None, "--by-id", help="4-char Crockford prefix from `[#XXXX]`."),
+    path: Path | None = typer.Argument(
+        None,
+        help="Daily markdown file (default: today). When given, its grandparent is the data dir.",
+    ),
 ) -> None:
     from scout.action_items.snooze import snooze
+
+    if (subject is None) == (by_id is None):
+        raise ActionItemError("snooze requires exactly one of --subject or --by-id")
 
     try:
         target_date = _dt.date.fromisoformat(until)
     except ValueError as e:
         raise ActionItemError(f"--until: invalid date {until!r}") from e
-    snooze(path, subject=subject, until=target_date)
+
+    # Backward compat: if a path argument is given, its grandparent serves as
+    # the data dir (path lives at <data_dir>/action-items/<file>.md). The
+    # filename's date is used to pin which daily file to operate on.
+    data_dir: Path | None = None
+    date: _dt.date | None = None
+    if path is not None:
+        data_dir = path.parent.parent
+        stem = path.stem  # e.g. action-items-2026-04-15
+        try:
+            date = _dt.date.fromisoformat(stem.removeprefix("action-items-"))
+        except ValueError as e:
+            raise ActionItemError(f"unrecognized daily filename: {path.name}") from e
+
+    snooze(by_id=by_id, by_subject=subject, until=target_date, date=date, data_dir=data_dir)
 
 
 @app.command("add-comment")
 def cli_add_comment(
-    subject: str = typer.Option(..., "--subject"),
-    text: str = typer.Option(..., "--text"),
-    path: Path | None = typer.Argument(None),
+    comment: str = typer.Option(..., "--comment", help="Comment text to append beneath the task."),
+    subject: str | None = typer.Option(None, "--subject", help="Substring of task title (legacy fallback)."),
+    by_id: str | None = typer.Option(None, "--by-id", help="4-char Crockford prefix from `[#XXXX]`."),
+    path: Path | None = typer.Argument(
+        None,
+        help="Daily markdown file (default: today). When given, its grandparent is the data dir.",
+    ),
 ) -> None:
     from scout.action_items.add_comment import add_comment
 
-    add_comment(path, subject=subject, text=text)
+    if (subject is None) == (by_id is None):
+        raise ActionItemError("add-comment requires exactly one of --subject or --by-id")
+
+    # Backward compat: if a path argument is given, its grandparent serves as
+    # the data dir (path lives at <data_dir>/action-items/<file>.md). The
+    # filename's date is used to pin which daily file to operate on.
+    data_dir: Path | None = None
+    date: _dt.date | None = None
+    if path is not None:
+        data_dir = path.parent.parent
+        stem = path.stem  # e.g. action-items-2026-04-15
+        try:
+            date = _dt.date.fromisoformat(stem.removeprefix("action-items-"))
+        except ValueError as e:
+            raise ActionItemError(f"unrecognized daily filename: {path.name}") from e
+
+    add_comment(by_id=by_id, by_subject=subject, comment=comment, date=date, data_dir=data_dir)
 
 
 @app.command("render")
@@ -77,7 +138,7 @@ def cli_list(
     json_out: bool = typer.Option(False, "--json"),
 ) -> None:
     from scout import paths
-    from scout.action_items.list import list_items
+    from scout.action_items.list import format_items, list_items
 
     target = path or paths.action_items_daily_path()
     items = list_items(target, include_done=include_done, priority=priority, section=section)
@@ -88,13 +149,13 @@ def cli_list(
                 "priority": i.priority,
                 "status": i.status,
                 "section": i.section,
+                "short_prefix": i.short_prefix,
             }
             for i in items
         ]
         sys.stdout.write(_json.dumps(payload) + "\n")
     else:
-        for i in items:
-            sys.stdout.write(f"{i.priority} [{i.status}] {i.title}\n")
+        sys.stdout.write(format_items(items))
 
 
 @app.command("watch")

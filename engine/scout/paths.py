@@ -86,3 +86,14 @@ def action_items_daily_path(data: Path | None = None, date: _dt.date | None = No
     """
     d = date or _today()
     return action_items_dir(data) / f"action-items-{d.isoformat()}.md"
+
+
+def id_map_path(data: Path | None = None) -> Path:
+    """Return the path to the prefix↔ULID map JSON file.
+
+    Lives under `$SCOUT_DATA_DIR/.scout-state/id-map.json`. Parent dir
+    is created on first write; readers may find it absent and treat
+    that as an empty map.
+    """
+    target = data if data is not None else data_dir()
+    return target / ".scout-state" / "id-map.json"

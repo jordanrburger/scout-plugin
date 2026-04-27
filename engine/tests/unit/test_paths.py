@@ -75,3 +75,8 @@ def test_action_items_daily_path_default_today(fake_data_dir: Path, monkeypatch:
 def test_action_items_daily_path_explicit_date(fake_data_dir: Path) -> None:
     p = paths.action_items_daily_path(data=fake_data_dir, date=dt.date(2026, 4, 15))
     assert p.name == "action-items-2026-04-15.md"
+
+
+def test_id_map_path_returns_state_subdir(fake_data_dir: Path) -> None:
+    p = paths.id_map_path(data=fake_data_dir)
+    assert p == fake_data_dir / ".scout-state" / "id-map.json"

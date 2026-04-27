@@ -1,61 +1,63 @@
-"""Toggle a task's checkbox to done in a daily action-items markdown.
+"""Mark an action-item complete by ID prefix or by subject substring.
 
-Match is case-insensitive substring on the task title; must be unambiguous.
-Undo flips `[x]` back to `[ ]`. Atomic rewrite via scout.action_items.writer.
+Returns an `Event` describing the mutation. v0.4 mutators emit Events
+but nothing persists them yet; v0.5 will add the SQLite event store.
+See v0.4 spec §13.2.
 """
 
 from __future__ import annotations
 
-import re
+import datetime as dt
 from pathlib import Path
 
 from scout import paths
+from scout.action_items._common import find_line_number, resolve_target
+from scout.action_items.parser import parse_file
 from scout.action_items.writer import flip_checkbox
-from scout.errors import ActionItemError
-
-TASK_RE = re.compile(r"^(?P<indent>\s*)- \[(?P<mark>[ xX])\] (?P<rest>.+?)\s*$")
-
-
-def _matching_lines(lines: list[str], subject: str, *, want_mark: str) -> list[tuple[int, str]]:
-    needle = subject.casefold()
-    out: list[tuple[int, str]] = []
-    for i, line in enumerate(lines, start=1):
-        m = TASK_RE.match(line)
-        if not m:
-            continue
-        if m.group("mark") not in want_mark:
-            continue
-        if needle in m.group("rest").casefold():
-            out.append((i, line))
-    return out
+from scout.events import Event, now_iso
+from scout.ids import new_ulid
 
 
-def mark_done(path: Path | None, *, subject: str, undo: bool = False) -> Path:
-    """Mark the unique matching task done (or open if undo=True).
+def _today() -> dt.date:
+    """Indirection so tests can monkeypatch the date without freezing time."""
+    return dt.date.today()
 
-    Args:
-        path: Daily markdown file. None resolves to today's file in SCOUT_DATA_DIR.
-        subject: Case-insensitive substring of the task title.
-        undo: If True, flip `[x]` back to `[ ]`.
 
-    Returns: the file actually modified (useful when `path is None`).
+def mark_done(
+    *,
+    by_id: str | None = None,
+    by_subject: str | None = None,
+    date: dt.date | None = None,
+    data_dir: Path | None = None,
+) -> Event:
+    """Mark today's (or `date`'s) action item done.
 
-    Raises ActionItemError on no-match or ambiguous match.
+    Exactly one of `by_id` or `by_subject` must be provided. `by_id` is
+    a 4-char Crockford prefix; `by_subject` is a case-insensitive
+    substring match against open-status raw lines (legacy fallback for
+    lines that haven't been prefixed yet).
     """
-    target = path or paths.action_items_daily_path()
-    if not target.exists():
-        raise ActionItemError(f"no daily file at {target}")
+    target_path = paths.action_items_daily_path(data=data_dir, date=date or _today())
 
-    lines = target.read_text(encoding="utf-8").splitlines()
-    want_mark = "x X" if undo else " "
-    matches = _matching_lines(lines, subject, want_mark=want_mark)
+    # Parse if file exists; otherwise pass empty items list and let
+    # resolve_target produce the right error (unknown prefix for by_id,
+    # no-match for by_subject). This preserves the by_id-unknown-prefix
+    # contract: that error fires before any file existence check.
+    items = parse_file(target_path) if target_path.exists() else []
+    match, item_ulid, via = resolve_target(
+        items=items,
+        data_dir=data_dir if data_dir is not None else paths.data_dir(),
+        by_id=by_id,
+        by_subject=by_subject,
+    )
 
-    if not matches:
-        raise ActionItemError(f"mark_done: no match for subject '{subject}' in {target.name}")
-    if len(matches) > 1:
-        listing = "\n".join(f"  {ln}: {ln_text}" for ln, ln_text in matches)
-        raise ActionItemError(f"mark_done: ambiguous match for '{subject}' ({len(matches)} candidates):\n{listing}")
+    line_number = find_line_number(target_path, match.raw_line)
+    flip_checkbox(target_path, line_number=line_number, to_done=True)
 
-    line_number, _ = matches[0]
-    flip_checkbox(target, line_number=line_number, to_done=not undo)
-    return target
+    return Event(
+        id=new_ulid(),
+        ts=now_iso(),
+        kind="action_item.completed",
+        source="cli:mark_done",
+        payload={"item_id": item_ulid, "via": via, "title": match.title},
+    )

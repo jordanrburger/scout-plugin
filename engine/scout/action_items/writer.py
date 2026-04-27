@@ -12,6 +12,7 @@ import tempfile
 from pathlib import Path
 
 from scout.errors import ActionItemError
+from scout.ids import short_prefix_pattern
 
 
 def atomic_write_lines(target: Path, lines: list[str]) -> None:
@@ -60,4 +61,27 @@ def insert_below(target: Path, *, line_number: int, text: str) -> None:
     if not 0 <= idx < len(lines):
         raise ActionItemError(f"insert_below: line {line_number} out of range (1..{len(lines)})")
     lines.insert(idx + 1, text)
+    atomic_write_lines(target, lines)
+
+
+def add_prefix_to_line(target: Path, *, line_number: int, prefix: str) -> None:
+    """Insert `[#PREFIX] ` after the checkbox marker on the 1-indexed line.
+
+    Refuses if the line already carries a `[#XXXX]` prefix — the caller
+    should not be asking to add one if scout.id_map already has a record.
+    """
+    lines = _read_lines(target)
+    idx = line_number - 1
+    if not 0 <= idx < len(lines):
+        raise ActionItemError(f"add_prefix_to_line: line {line_number} out of range (1..{len(lines)})")
+    line = lines[idx]
+    if short_prefix_pattern().search(line):
+        raise ActionItemError(f"add_prefix_to_line: line {line_number} already has prefix")
+    # Find the checkbox marker (`- [ ]` or `- [x]`) and insert after it.
+    for marker in ("- [ ] ", "- [x] "):
+        if line.startswith(marker):
+            lines[idx] = marker + f"[#{prefix}] " + line[len(marker) :]
+            break
+    else:
+        raise ActionItemError(f"add_prefix_to_line: line {line_number} doesn't start with a checkbox marker")
     atomic_write_lines(target, lines)
