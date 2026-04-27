@@ -160,7 +160,7 @@ def cli_list(
 
 @app.command("watch")
 def cli_watch(
-    target: str = typer.Argument(
+    target: str | None = typer.Argument(
         None,
         metavar="[DATE_OR_PATH]",
         help="YYYY-MM-DD for that day's file, an explicit path, or omit for today.",
