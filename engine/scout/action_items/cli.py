@@ -168,10 +168,7 @@ def cli_watch(
     no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI color (auto when stdout is not a TTY)."),
 ) -> None:
     """Stream changes to today's action items as they happen."""
-    import datetime as dt
     import re
-    import sys
-    from pathlib import Path
 
     from scout import paths
     from scout.action_items.watch import run_watch_loop
@@ -179,7 +176,7 @@ def cli_watch(
     if target is None:
         target_path = paths.action_items_daily_path()
     elif re.fullmatch(r"\d{4}-\d{2}-\d{2}", target):
-        target_path = paths.action_items_daily_path(date=dt.date.fromisoformat(target))
+        target_path = paths.action_items_daily_path(date=_dt.date.fromisoformat(target))
     else:
         target_path = Path(target).expanduser().resolve()
 
