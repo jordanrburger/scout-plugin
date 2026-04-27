@@ -55,14 +55,6 @@ def test_action_items_mark_done_via_cli(tmp_path: Path) -> None:
     assert "- [x] sample task" in target.read_text()
 
 
-def test_action_items_watch_returns_scout_error_exit_code() -> None:
-    """Plan 2 stubs `watch` with a Plan 3 placeholder."""
-    r = _scoutctl("action-items", "watch", env={**os.environ})
-    # ScoutError.exit_code == 1
-    assert r.returncode == 1
-    assert "Plan 3" in r.stderr
-
-
 def test_action_items_mark_done_by_id_via_cli(tmp_path: Path) -> None:
     """Smoke test: scoutctl action-items mark-done --by-id A3F7 flips the matching line."""
     data_dir = tmp_path / "Scout"

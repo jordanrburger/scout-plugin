@@ -15,7 +15,7 @@ from pathlib import Path
 
 import typer
 
-from scout.errors import ActionItemError, ScoutError
+from scout.errors import ActionItemError
 
 app = typer.Typer(help="Action-items operations.", no_args_is_help=True)
 
@@ -159,5 +159,32 @@ def cli_list(
 
 
 @app.command("watch")
-def cli_watch() -> None:
-    raise ScoutError("scoutctl action-items watch is implemented in Plan 3")
+def cli_watch(
+    target: str = typer.Argument(
+        None,
+        metavar="[DATE_OR_PATH]",
+        help="YYYY-MM-DD for that day's file, an explicit path, or omit for today.",
+    ),
+    no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI color (auto when stdout is not a TTY)."),
+) -> None:
+    """Stream changes to today's action items as they happen."""
+    import datetime as dt
+    import re
+    import sys
+    from pathlib import Path
+
+    from scout import paths
+    from scout.action_items.watch import run_watch_loop
+
+    if target is None:
+        target_path = paths.action_items_daily_path()
+    elif re.fullmatch(r"\d{4}-\d{2}-\d{2}", target):
+        target_path = paths.action_items_daily_path(date=dt.date.fromisoformat(target))
+    else:
+        target_path = Path(target).expanduser().resolve()
+
+    if not target_path.exists():
+        raise ActionItemError(f"target does not exist: {target_path}")
+
+    color = not no_color and sys.stdout.isatty()
+    run_watch_loop(target_path, color=color)
