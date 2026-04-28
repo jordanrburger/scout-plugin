@@ -12,13 +12,13 @@ dependencies = [
     "pyyaml>=6.0",
     "jinja2>=3.1",
     "python-ulid>=2.2",
+    "rich>=13.7",
+    "watchdog>=4.0",
 ]
 
 [project.optional-dependencies]
 full = [
     "textual>=0.63",
-    "rich>=13.7",
-    "watchdog>=4.0",
 ]
 dev = [
     "pytest>=8.0",
@@ -63,6 +63,12 @@ warn_unused_ignores = true
 # extra just for type-checking.
 [[tool.mypy.overrides]]
 module = ["textual", "textual.*"]
+ignore_missing_imports = true
+
+# watchdog ships no PEP 561 type stubs (no `types-watchdog` exists on PyPI as
+# of 2026-04). Treat as untyped — same pattern as textual.
+[[tool.mypy.overrides]]
+module = ["watchdog", "watchdog.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

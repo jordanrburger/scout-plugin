@@ -19,12 +19,17 @@ parse(md_path: Path) -> tuple[str, list[str], list[Section]]
 
 from __future__ import annotations
 
+import datetime as dt
 import html
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from scout.errors import ActionItemError
+
+if TYPE_CHECKING:
+    from scout.action_items.diff import ChangeEvent
 
 # ---------------------------------------------------------------------------
 # Parsing
@@ -1061,3 +1066,70 @@ document.addEventListener('click', function(e) {
   }
 });
 """
+
+
+# ---------------------------------------------------------------------------
+# Change-event line formatter (Plan 3, Task 2)
+# ---------------------------------------------------------------------------
+
+
+# Symbol + label + Rich style per kind.
+# Defined here (module level) so render_changes doesn't rebuild it per call.
+_SYMBOL_STYLE: dict[str, tuple[str, str, str]] = {
+    "added": ("+", "added", "green"),
+    "removed": ("-", "removed", "red"),
+    "completed": ("✓", "completed", "green"),
+    "reopened": ("↻", "reopened", "yellow"),
+    "title_changed": ("✎", "renamed", "yellow"),
+}
+
+
+def render_changes(
+    events: list[ChangeEvent],
+    *,
+    now: dt.datetime,
+    color: bool,
+) -> list[str]:
+    """Format ChangeEvent records as one line each.
+
+    Returns a list of strings; caller is responsible for emitting them
+    (typically `for line in lines: print(line)`).
+
+    `color=True` injects ANSI escapes via Rich. `color=False` is plain
+    text — use this when stdout is not a TTY or the user passed `--no-color`.
+    """
+    # Local imports keep render_html's stdlib-only top-level imports intact;
+    # rich is in the [full] optional-dependencies, not core.
+    from io import StringIO
+
+    from rich.console import Console
+    from rich.text import Text
+
+    out: list[str] = []
+    ts = now.strftime("[%H:%M:%S]")
+    # 9-char-wide kind column so all rows align.
+    KIND_WIDTH = 9
+    for ev in events:
+        symbol, kind_label, style = _SYMBOL_STYLE.get(ev.kind, ("?", ev.kind, "white"))
+        prefix_part = f"[#{ev.item_id}] " if ev.item_id else ""
+        if ev.kind == "title_changed":
+            body = f'{prefix_part}"{ev.extras["old_title"]}" → "{ev.extras["new_title"]}"'
+        else:
+            body = f"{prefix_part}{ev.title} ({ev.section})"
+        plain = f"{ts} {symbol} {kind_label.ljust(KIND_WIDTH)} {body}"
+        if not color:
+            out.append(plain)
+            continue
+        # Use a temporary Console capturing into a StringIO so we get
+        # ANSI escapes regardless of the surrounding stdout's TTY status.
+        buf = StringIO()
+        console = Console(file=buf, force_terminal=True, color_system="truecolor", legacy_windows=False)
+        console.print(
+            Text(f"{ts} ", style="dim")
+            + Text(symbol + " ", style=style)
+            + Text(kind_label.ljust(KIND_WIDTH), style=style)
+            + Text(" " + body),
+            end="",
+        )
+        out.append(buf.getvalue())
+    return out
