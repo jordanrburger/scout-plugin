@@ -96,6 +96,9 @@ def run_watch_loop(target: Path, *, color: bool) -> None:
         state["prev_text"] = curr_text
 
     class _Handler(FileSystemEventHandler):
+        # watchdog stubs widen `event` to FileSystemEvent — narrowing here
+        # is safe because watchdog only dispatches FileModifiedEvent to
+        # on_modified, but mypy correctly flags the Liskov narrowing.
         def on_modified(self, event: FileModifiedEvent) -> None:  # type: ignore[override]
             on_modified(event)
 
